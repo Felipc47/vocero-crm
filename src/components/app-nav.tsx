@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   FlaskConical,
@@ -28,10 +29,12 @@ const NAV = [
 export function AppNav({
   branding,
   userName,
+  userImage,
   role,
 }: {
   branding: Branding;
   userName: string;
+  userImage?: string | null;
   role: string;
 }) {
   const pathname = usePathname();
@@ -60,12 +63,15 @@ export function AppNav({
     <aside className="flex w-56 shrink-0 flex-col border-r bg-subtle px-3 pb-3.5 pt-4">
       {/* Brand white-label */}
       <div className="mb-4 flex items-center gap-2.5 px-2">
-        <span
-          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-sm bg-brand text-[15px] font-bold text-white"
+        <Image
+          src="/brand/isotipo.png"
+          alt=""
+          width={30}
+          height={30}
+          className="h-[30px] w-[30px] shrink-0 rounded-sm"
           aria-hidden
-        >
-          {branding.name.charAt(0).toUpperCase()}
-        </span>
+          priority
+        />
         <span className="min-w-0">
           <span className="block truncate text-[16px] font-[650] leading-tight tracking-tight">
             {branding.name}
@@ -131,8 +137,19 @@ export function AppNav({
       </Link>
 
       <div className="mt-1 flex items-center gap-2.5 rounded-sm px-2.5 py-2 hover:bg-accent">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-text">
-          {initials(userName)}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-soft text-xs font-semibold text-brand-text">
+          {userImage ? (
+            <Image
+              src={userImage}
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 object-cover"
+              unoptimized
+            />
+          ) : (
+            initials(userName)
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-semibold">{userName}</span>

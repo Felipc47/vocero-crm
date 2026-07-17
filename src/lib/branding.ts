@@ -17,10 +17,14 @@ export type Branding = {
   accent: string; // hex del acento base elegido
 };
 
-export const DEFAULT_BRANDING: Branding = { name: "Vocero", accent: "#3f5972" };
+export const DEFAULT_BRANDING: Branding = { name: "Seomos CRM", accent: "#e64a1c" };
 
-/** Presets del handoff (valores exactos). */
+/** Presets del handoff (valores exactos) + la marca Seomos (naranja). */
 export const ACCENT_PRESETS: Record<string, { label: string; set: AccentSet }> = {
+  "#e64a1c": {
+    label: "Naranja Seomos",
+    set: { accent: "#e64a1c", hover: "#c43d15", soft: "#fbe0d6", tint: "#fef4f0", text: "#a8380f" },
+  },
   "#3f5972": {
     label: "Azul acero",
     set: { accent: "#3f5972", hover: "#334a60", soft: "#dde5ee", tint: "#f3f6f9", text: "#2b4056" },

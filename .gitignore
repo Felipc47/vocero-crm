@@ -39,3 +39,6 @@ Thumbs.db
 .claude/settings.local.json
 .playwright-mcp/
 .tmp-seed-demo.mjs
+
+# Recursos fuente de marca (los assets usados viven en public/brand/)
+imagenes-seomos/

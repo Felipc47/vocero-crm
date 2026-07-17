@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 export function BrandingClient() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [accent, setAccent] = useState("#3f5972");
+  const [accent, setAccent] = useState("#e64a1c");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export function BrandingClient() {
               maxLength={30}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Vocero"
+              placeholder="Seomos CRM"
               className="max-w-xs"
             />
           </div>
@@ -112,7 +112,7 @@ export function BrandingClient() {
               >
                 <input
                   type="color"
-                  value={isValidHex(accent) ? accent : "#3f5972"}
+                  value={isValidHex(accent) ? accent : "#e64a1c"}
                   onChange={(e) => setAccent(e.target.value)}
                   className="h-4 w-4 cursor-pointer appearance-none border-0 bg-transparent p-0"
                 />
@@ -132,11 +132,11 @@ export function BrandingClient() {
                 className="flex h-[30px] w-[30px] items-center justify-center rounded-sm text-[15px] font-bold text-white"
                 style={{ background: previewSet.accent }}
               >
-                {(name.trim() || "Vocero").charAt(0).toUpperCase()}
+                {(name.trim() || "Seomos CRM").charAt(0).toUpperCase()}
               </span>
               <span>
                 <span className="block text-[15px] font-[650] leading-tight">
-                  {name.trim() || "Vocero"}
+                  {name.trim() || "Seomos CRM"}
                 </span>
                 <span className="block text-[11px] text-text-3">CRM · WhatsApp</span>
               </span>

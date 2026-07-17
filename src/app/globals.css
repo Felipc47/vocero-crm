@@ -26,12 +26,12 @@
     --bubble-out: #f2f5f8;
     --bubble-out-text: #33414f;
 
-    /* Acento (default: azul acero apagado; white-label lo sobreescribe) */
-    --accent: #3f5972;
-    --accent-hover: #334a60;
-    --accent-soft: #dde5ee;
-    --accent-tint: #f3f6f9;
-    --accent-text: #2b4056;
+    /* Acento (default: naranja Seomos; white-label lo sobreescribe) */
+    --accent: #e64a1c;
+    --accent-hover: #c43d15;
+    --accent-soft: #fbe0d6;
+    --accent-tint: #fef4f0;
+    --accent-text: #a8380f;
     --bg-active: var(--accent-tint);
 
     /* Estado */
