@@ -206,7 +206,7 @@ export function ContactPanel({
                 }}
                 className={cn(
                   "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors",
-                  aiActive ? "bg-brand" : "bg-border-strong",
+                  aiActive ? "bg-success" : "bg-border-strong",
                   !agentReady && "cursor-not-allowed opacity-60"
                 )}
               >
