@@ -82,11 +82,11 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
             >
               <div
                 className={cn(
-                  "max-w-[64%] rounded-lg px-3 pb-1.5 pt-2 text-sm leading-[1.45] shadow-sm",
+                  "max-w-[64%] rounded-2xl px-3.5 pb-1.5 pt-2 text-sm leading-[1.45] shadow-sm",
                   out
                     ? "border border-brand-soft bg-bubble-out text-bubble-out-text"
-                    : "bg-background",
-                  !grouped && (out ? "rounded-tr-[5px]" : "rounded-tl-[5px]")
+                    : "border border-border bg-surface",
+                  !grouped && (out ? "rounded-tr-[6px]" : "rounded-tl-[6px]")
                 )}
               >
                 {m.type === "text" || m.type === "template" ? (
@@ -103,10 +103,10 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
                 <span className="float-right ml-2 mt-1 flex items-center gap-1">
                   {m.aiGenerated && (
                     <span
-                      className="inline-flex items-center gap-0.5 text-[10px] font-medium text-brand"
+                      className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-accent-2"
                       title="Respuesta generada por IA"
                     >
-                      <Sparkles className="h-3 w-3" strokeWidth={1.7} /> IA
+                      <Sparkles className="h-3 w-3" strokeWidth={2} /> IA
                     </span>
                   )}
                   <span className="text-[10.5px] text-text-4">

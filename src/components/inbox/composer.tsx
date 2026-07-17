@@ -61,7 +61,7 @@ export function Composer({
   if (!conversation.windowOpen) {
     return (
       <div className="border-t bg-background px-[18px] py-3.5">
-        <div className="mb-3 flex items-start gap-2 rounded-md border border-[#ece2cf] bg-[#faf7f0] p-3 text-sm text-[#8a6d3b]">
+        <div className="mb-3 flex items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3 text-sm text-[color:var(--warning-fg)]">
           <Clock3 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />
           <div>
             <p className="font-medium">La ventana de 24 horas está cerrada.</p>
@@ -121,11 +121,11 @@ export function Composer({
           disabled={sending || text.trim().length === 0}
           aria-label="Enviar"
           className={cn(
-            "flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-brand text-white transition-opacity hover:bg-brand-hover",
-            (sending || !text.trim()) && "opacity-40"
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-accent transition-opacity hover:bg-brand-hover",
+            (sending || !text.trim()) && "opacity-40 shadow-none"
           )}
         >
-          <Send className="h-4 w-4" strokeWidth={1.7} />
+          <Send className="h-[18px] w-[18px]" strokeWidth={2} />
         </button>
       </div>
       <div className="mt-1.5 flex items-center justify-between">

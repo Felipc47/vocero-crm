@@ -117,9 +117,9 @@ export function TeamClient() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           {created && (
-            <div className="rounded-md border border-[#d8e8dd] bg-[#eff7f1] p-3 text-sm">
-              <p className="font-medium text-[#3f6b52]">Cuenta creada ✓</p>
-              <p className="mt-1 text-[#3f6b52]/90">
+            <div className="rounded-md border border-[color:var(--success-border)] bg-[color:var(--success-bg)] p-3 text-sm">
+              <p className="font-medium text-[color:var(--success-fg)]">Cuenta creada ✓</p>
+              <p className="mt-1 text-[color:var(--success-fg)]">
                 Comparte estos datos ahora (no se volverán a mostrar):
                 <br />
                 <code>{created.email}</code> · contraseña{" "}

@@ -56,13 +56,13 @@ export function WhatsappWizard() {
   return (
     <div className="max-w-3xl space-y-6">
       {connection?.status === "reconnect_required" && (
-        <div className="flex items-start gap-2 rounded-lg border border-[#ecd4d2] bg-[#faf1f0] p-4 text-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
-            <p className="font-medium text-[#a2504c]">
+            <p className="font-medium text-[color:var(--danger-fg)]">
               El token de WhatsApp expiró o fue revocado.
             </p>
-            <p className="text-[#a2504c]/80">
+            <p className="text-[color:var(--danger-fg)]">
               Los envíos están pausados. Pega un token nuevo abajo y prueba la
               conexión para reconectar.
             </p>
@@ -71,13 +71,13 @@ export function WhatsappWizard() {
       )}
 
       {connection && connection.status === "connected" && (
-        <div className="flex items-center gap-3 rounded-lg border border-[#d8e8dd] bg-[#eff7f1] p-4">
+        <div className="flex items-center gap-3 rounded-lg border border-[color:var(--success-border)] bg-[color:var(--success-bg)] p-4">
           <CheckCircle2 className="h-5 w-5 text-success" />
           <div className="flex-1 text-sm">
-            <p className="font-medium text-[#3f6b52]">
+            <p className="font-medium text-[color:var(--success-fg)]">
               Número conectado: {connection.displayPhoneNumber ?? connection.phoneNumberId}
             </p>
-            <p className="text-[#3f6b52]/80">
+            <p className="text-[color:var(--success-fg)]">
               {connection.verifiedName ? `${connection.verifiedName} · ` : ""}
               token …{connection.tokenLast4}
             </p>
@@ -294,7 +294,7 @@ function WebhookCard({ webhook }: { webhook: WebhookInfo }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {!webhook.isHttps && (
-          <p className="flex items-start gap-2 rounded-md border border-[#ece2cf] bg-[#faf7f0] p-3 text-xs text-[#8a6d3b]">
+          <p className="flex items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3 text-xs text-[color:var(--warning-fg)]">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             La URL configurada no es https: Meta exige https para los webhooks.
             Ajusta APP_BASE_URL con tu dominio público.

@@ -159,11 +159,11 @@ export function ContactPanel({
           </div>
 
           {conversation.handoffAt && (
-            <div className="mt-3 rounded-md border border-[#ece2cf] bg-[#faf7f0] p-3">
-              <p className="flex items-center gap-1.5 text-[13px] font-medium text-[#8a6d3b]">
+            <div className="mt-3 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-[color:var(--warning-fg)]">
                 <UserRound className="h-4 w-4" strokeWidth={1.7} /> Atención humana
               </p>
-              <p className="mt-1 text-xs text-[#8a6d3b]/80">
+              <p className="mt-1 text-xs text-[color:var(--warning-fg)]">
                 {HANDOFF_LABELS[conversation.handoffReason ?? ""] ??
                   "La IA está en pausa en esta conversación."}
               </p>
@@ -220,12 +220,12 @@ export function ContactPanel({
             </div>
 
             {!agentReady && (
-              <div className="mt-2.5 flex items-start gap-2 rounded-md border border-[#ece2cf] bg-[#faf7f0] p-2.5">
+              <div className="mt-2.5 flex items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-2.5">
                 <Sparkles
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8a6d3b]"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--warning-fg)]"
                   strokeWidth={1.7}
                 />
-                <p className="text-[11px] leading-relaxed text-[#8a6d3b]">
+                <p className="text-[11px] leading-relaxed text-[color:var(--warning-fg)]">
                   {aiConfigured
                     ? "La IA todavía no responde por su cuenta. Configura lo básico del agente y enciéndelo."
                     : "Falta la clave de IA de la instancia (OPENROUTER_API_TOKEN) para que el agente pueda responder."}

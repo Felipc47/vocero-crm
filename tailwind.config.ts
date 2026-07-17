@@ -8,6 +8,7 @@ import animate from "tailwindcss-animate";
  */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -18,6 +19,11 @@ const config: Config = {
         background: "var(--bg)",
         foreground: "var(--text)",
         subtle: "var(--bg-subtle)",
+        surface: "var(--surface)",
+        "surface-2": "var(--surface-2)",
+        sidebar: "var(--sidebar)",
+        mute: "var(--mute)",
+        faint: "var(--faint)",
         primary: {
           DEFAULT: "var(--accent)",
           foreground: "#ffffff",
@@ -39,11 +45,11 @@ const config: Config = {
           foreground: "var(--text)",
         },
         card: {
-          DEFAULT: "var(--bg)",
+          DEFAULT: "var(--surface)",
           foreground: "var(--text)",
         },
         popover: {
-          DEFAULT: "var(--bg)",
+          DEFAULT: "var(--surface)",
           foreground: "var(--text)",
         },
         brand: {
@@ -53,6 +59,7 @@ const config: Config = {
           tint: "var(--accent-tint)",
           text: "var(--accent-text)",
         },
+        "accent-2": "var(--accent-2)",
         "text-2": "var(--text-2)",
         "text-3": "var(--text-3)",
         "text-4": "var(--text-4)",
@@ -71,9 +78,11 @@ const config: Config = {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         pop: "var(--shadow-pop)",
+        accent: "var(--shadow-accent)",
       },
       fontFamily: {
-        sans: ["var(--font-geist)", "Hanken Grotesk", "-apple-system", "sans-serif"],
+        sans: ["var(--font-nunito)", "-apple-system", "sans-serif"],
+        display: ["var(--font-poppins)", "var(--font-nunito)", "sans-serif"],
       },
     },
   },

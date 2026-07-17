@@ -3,52 +3,125 @@
 @tailwind utilities;
 
 /*
-  Sistema de diseño "Atlas": modo claro sobrio (neutros fríos + un acento).
-  Los tokens de acento (--accent*) se sobreescriben en runtime por el
-  white-label de la organización (Configuración → Marca).
+  Sistema de diseño "Seomos": paleta cálida (crema + naranja) con tema claro y
+  oscuro. Los tokens de acento (--accent*) los puede sobreescribir el
+  white-label de la organización (Configuración → Marca). El tema lo alterna la
+  clase `.dark` en <html> (ThemeProvider + script anti-flash).
 */
 @layer base {
   :root {
-    /* Neutros (valores exactos del handoff) */
-    --bg: #ffffff;
-    --bg-subtle: #fbfbfc;
-    --bg-panel: #f8f8f9;
-    --bg-hover: #f4f4f5;
-    --text: #1a1a1e;
-    --text-2: #56565e;
-    --text-3: #8c8c95;
-    --text-4: #aeaeb6;
-    --border: #ecedf0;
-    --border-strong: #e0e1e6;
+    /* Superficies (claro) */
+    --bg: #f6f2ea; /* fondo general cálido */
+    --bg-subtle: #ffffff; /* paneles / surface */
+    --bg-panel: #faf7f1; /* surface-2: inputs, chips */
+    --bg-hover: #f1ece3;
+    --surface: #ffffff;
+    --surface-2: #faf7f1;
+    --sidebar: #ffffff;
+
+    /* Texto */
+    --text: #0b0b0d;
+    --text-2: rgba(11, 11, 13, 0.62);
+    --text-3: rgba(11, 11, 13, 0.42);
+    --text-4: rgba(11, 11, 13, 0.32);
+    --mute: rgba(11, 11, 13, 0.6);
+    --faint: rgba(11, 11, 13, 0.4);
+
+    /* Bordes */
+    --border: rgba(11, 11, 13, 0.11);
+    --border-strong: rgba(11, 11, 13, 0.2);
 
     /* Chat */
-    --chat-bg: #f4f5f7;
-    --bubble-out: #f2f5f8;
-    --bubble-out-text: #33414f;
+    --chat-bg: #f6f2ea;
+    --bubble-out: #fff2ec;
+    --bubble-out-text: #0b0b0d;
 
-    /* Acento (default: naranja Seomos; white-label lo sobreescribe) */
-    --accent: #e64a1c;
+    /* Acento (naranja Seomos; white-label lo puede sobreescribir) */
+    --accent: #e84b1d;
     --accent-hover: #c43d15;
-    --accent-soft: #fbe0d6;
-    --accent-tint: #fef4f0;
-    --accent-text: #a8380f;
+    --accent-soft: rgba(232, 75, 29, 0.14);
+    --accent-tint: rgba(232, 75, 29, 0.08);
+    --accent-text: #b23a12;
     --bg-active: var(--accent-tint);
 
+    /* Acento secundario (morado, usado en marcadores de IA) */
+    --accent-2: #5b358b;
+
     /* Estado */
-    --success: #5f8f74;
-    --warning: #b08b5e;
-    --danger: #a2504c;
+    --success: #2fa35a;
+    --warning: #e8a13d;
+    --danger: #cf4322;
+
+    /* Callouts suaves de estado (fondo + borde + texto) */
+    --warning-bg: #faf7f0;
+    --warning-border: #ece2cf;
+    --warning-fg: #8a6d3b;
+    --success-bg: #eff7f1;
+    --success-border: #d8e8dd;
+    --success-fg: #3f6b52;
+    --danger-bg: #faf1f0;
+    --danger-border: #ecd4d2;
+    --danger-fg: #a2504c;
 
     /* Radios y sombras */
-    --radius-sm: 7px;
-    --radius: 10px;
-    --radius-lg: 14px;
+    --radius-sm: 9px;
+    --radius: 12px;
+    --radius-lg: 16px;
     --shadow-sm: 0 1px 2px rgba(20, 20, 30, 0.05);
     --shadow-md: 0 6px 20px -6px rgba(20, 20, 35, 0.12);
     --shadow-pop: 0 12px 32px -8px rgba(20, 20, 35, 0.22);
+    --shadow-accent: 0 4px 12px rgba(232, 75, 29, 0.3);
 
     /* Densidad de filas de conversación */
     --row-py: 11px;
+  }
+
+  .dark {
+    --bg: #0b0b0d;
+    --bg-subtle: #16161a;
+    --bg-panel: #1f1f26;
+    --bg-hover: #232330;
+    --surface: #16161a;
+    --surface-2: #1f1f26;
+    --sidebar: #0f0f12;
+
+    --text: #f6f2ea;
+    --text-2: rgba(246, 242, 234, 0.62);
+    --text-3: rgba(246, 242, 234, 0.42);
+    --text-4: rgba(246, 242, 234, 0.32);
+    --mute: rgba(246, 242, 234, 0.62);
+    --faint: rgba(246, 242, 234, 0.4);
+
+    --border: rgba(246, 242, 234, 0.13);
+    --border-strong: rgba(246, 242, 234, 0.26);
+
+    --chat-bg: #0b0b0d;
+    --bubble-out: rgba(238, 67, 33, 0.16);
+    --bubble-out-text: #f6f2ea;
+
+    --accent: #ee4321;
+    --accent-hover: #d63b1a;
+    --accent-soft: rgba(238, 67, 33, 0.2);
+    --accent-tint: rgba(238, 67, 33, 0.12);
+    --accent-text: #ff7a55;
+
+    --accent-2: #7b4fd0;
+
+    --success: #3ebd6b;
+    --warning: #e8a13d;
+    --danger: #e0563a;
+
+    --warning-bg: rgba(232, 161, 61, 0.12);
+    --warning-border: rgba(232, 161, 61, 0.28);
+    --warning-fg: #e8b877;
+    --success-bg: rgba(62, 189, 107, 0.12);
+    --success-border: rgba(62, 189, 107, 0.28);
+    --success-fg: #5fd08a;
+    --danger-bg: rgba(224, 86, 58, 0.12);
+    --danger-border: rgba(224, 86, 58, 0.3);
+    --danger-fg: #f0866a;
+
+    --shadow-accent: 0 4px 14px rgba(238, 67, 33, 0.35);
   }
 }
 
@@ -58,11 +131,16 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    letter-spacing: -0.01em;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-poppins), var(--font-nunito), system-ui, sans-serif;
   }
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
   }
   ::-webkit-scrollbar-thumb {
     border-radius: 999px;

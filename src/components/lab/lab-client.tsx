@@ -314,7 +314,7 @@ function Report({
               ))}
             </div>
             {cases.some((c) => c.status === "judge_failed") && (
-              <p className="mt-3 text-xs text-[#8a6d3b]">
+              <p className="mt-3 text-xs text-[color:var(--warning-fg)]">
                 {cases.filter((c) => c.status === "judge_failed").length} caso(s) sin
                 veredicto (el juez no respondió válido); excluidos del score.
               </p>
@@ -337,7 +337,7 @@ function CaseCard({ testCase, onApplied }: { testCase: Case; onApplied: () => vo
     c.veredicto === "verde" ? (
       <CheckCircle2 className="h-4 w-4 text-success" />
     ) : c.veredicto === "amarillo" ? (
-      <AlertTriangle className="h-4 w-4 text-[#8a6d3b]" />
+      <AlertTriangle className="h-4 w-4 text-[color:var(--warning-fg)]" />
     ) : c.veredicto === "rojo" ? (
       <XCircle className="h-4 w-4 text-destructive" />
     ) : (
@@ -427,7 +427,7 @@ function HallazgoCard({
   }
 
   return (
-    <div className="rounded-md border border-[#ece2cf] bg-[#faf7f0] p-3">
+    <div className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3">
       <div className="flex items-center justify-between">
         <Badge variant="warning">{TIPO_LABELS[hallazgo.tipo]}</Badge>
         {hallazgo.sugerencia && !applied && !editing && (
