@@ -31,9 +31,9 @@
     --border: rgba(11, 11, 13, 0.11);
     --border-strong: rgba(11, 11, 13, 0.2);
 
-    /* Chat */
+    /* Chat (burbuja saliente: verde WhatsApp del mock SEOMOS) */
     --chat-bg: #f6f2ea;
-    --bubble-out: #fff2ec;
+    --bubble-out: #dcf3e4;
     --bubble-out-text: #0b0b0d;
 
     /* Acento (naranja Seomos; white-label lo puede sobreescribir) */
@@ -96,7 +96,7 @@
     --border-strong: rgba(246, 242, 234, 0.26);
 
     --chat-bg: #0b0b0d;
-    --bubble-out: rgba(238, 67, 33, 0.16);
+    --bubble-out: #243024;
     --bubble-out-text: #f6f2ea;
 
     --accent: #ee4321;
@@ -148,6 +148,34 @@
   }
   ::-webkit-scrollbar-track {
     background: transparent;
+  }
+}
+
+/* Animaciones del mock SEOMOS: slide-over, overlays y toasts */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -72,29 +73,22 @@ export function AgentClient() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <h2 className="font-semibold">Agente de IA</h2>
-        <div className="flex items-center gap-3">
+      <header className="flex items-center gap-3.5 border-b bg-surface px-[30px] py-[18px]">
+        <Sparkles className="h-[22px] w-[22px] text-brand" strokeWidth={2} />
+        <h2 className="font-display text-[22px] font-bold">Agente de IA</h2>
+        <div className="ml-auto flex items-center gap-3">
           {saved && <span className="text-xs text-primary">Guardado ✓</span>}
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[13px] font-bold">
             {profile.enabled ? "Encendido" : "Apagado"}
           </span>
-          <button
-            role="switch"
-            aria-checked={profile.enabled}
-            aria-label="Agente encendido"
+          <Switch
+            checked={profile.enabled}
             disabled={!aiConfigured}
-            onClick={() => void saveProfile({ enabled: !profile.enabled })}
-            className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-40 ${
-              profile.enabled ? "bg-primary" : "bg-secondary"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                profile.enabled ? "translate-x-5" : "translate-x-0.5"
-              }`}
-            />
-          </button>
+            aria-label="Agente encendido"
+            onCheckedChange={() =>
+              void saveProfile({ enabled: !profile.enabled })
+            }
+          />
         </div>
       </header>
 

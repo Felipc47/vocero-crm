@@ -5,12 +5,14 @@ export default function SettingsLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b px-6 py-4">
-        <h2 className="font-semibold">Configuración</h2>
+      <header className="border-b bg-surface px-[30px] py-[18px]">
+        <h2 className="font-display text-[22px] font-bold">Configuración</h2>
       </header>
       <div className="flex min-h-0 flex-1">
         <SettingsNav />
-        <div className="min-w-0 flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="min-w-0 flex-1 overflow-y-auto px-[34px] py-[26px]">
+          <div className="mx-auto max-w-[900px]">{children}</div>
+        </div>
       </div>
     </div>
   );

@@ -49,4 +49,10 @@ export type ContactDto = {
   phone: string;
   notes: string | null;
   archivedAt: string | null;
+  /** Etapa del lead del contacto (solo lectura; listado de Contactos). */
+  stage?: {
+    name: string;
+    kind: "open" | "won" | "lost";
+    position: number;
+  } | null;
 };

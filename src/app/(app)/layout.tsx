@@ -4,6 +4,7 @@ import { getAuth } from "@/lib/auth";
 import { getSessionOrNull } from "@/lib/auth/session";
 import { getBranding } from "@/server/branding";
 import { AppNav } from "@/components/app-nav";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default async function AppLayout({
   children,
@@ -16,14 +17,16 @@ export default async function AppLayout({
   });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <AppNav
-        branding={branding}
-        userName={authSession?.user.name ?? "Usuario"}
-        userImage={authSession?.user.image ?? null}
-        role={session.role}
-      />
-      <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
-    </div>
+    <ToastProvider>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <AppNav
+          branding={branding}
+          userName={authSession?.user.name ?? "Usuario"}
+          userImage={authSession?.user.image ?? null}
+          role={session.role}
+        />
+        <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+      </div>
+    </ToastProvider>
   );
 }

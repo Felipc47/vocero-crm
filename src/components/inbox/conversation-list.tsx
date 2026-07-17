@@ -6,15 +6,9 @@ import type { ConversationDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ContactAvatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
+import { StageTag } from "@/components/ui/stage-tag";
+import { useStageColors } from "@/components/use-stage-colors";
 import { formatTime, previewText } from "./helpers";
-
-const STAGE_DOT: Record<string, string> = {
-  Nuevo: "#9ca3af",
-  "En conversación": "#7b93b3",
-  Interesado: "#b08b5e",
-  Cliente: "#5f8f74",
-  Perdido: "#a2504c",
-};
 
 function EmptyState({ onSeeded }: { onSeeded: () => void }) {
   const [seeding, setSeeding] = useState(false);
@@ -65,6 +59,7 @@ export function ConversationList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const colorFor = useStageColors();
 
   const loading = conversationsProp === null;
   const conversations = conversationsProp ?? [];
@@ -82,54 +77,48 @@ export function ConversationList({
     filter === "unread" ? searched.filter((c) => c.unreadCount > 0) : searched;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b px-4 pb-3 pt-4">
-        <div className="mb-3 flex items-baseline gap-2">
-          <h2 className="text-[17px] font-[650] tracking-tight">Bandeja</h2>
-          <span className="text-sm text-text-3">{conversations.length}</span>
+    <div className="flex h-full flex-col bg-surface">
+      <header className="px-5 pb-3 pt-5">
+        <div className="mb-3.5 flex items-baseline gap-2">
+          <h2 className="font-display text-[21px] font-bold">Bandeja</h2>
+          <span className="text-[13px] font-extrabold text-mute">
+            {conversations.length}
+          </span>
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-secondary px-3 py-[7px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft">
-          <Search className="h-4 w-4 shrink-0 text-text-3" strokeWidth={1.7} />
+        <div className="flex items-center gap-2 rounded-[11px] border bg-surface-2 px-3 py-[10px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft">
+          <Search className="h-4 w-4 shrink-0 text-faint" strokeWidth={2} />
           <input
             placeholder="Buscar conversación…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-[13px] outline-none placeholder:text-text-3"
+            className="w-full bg-transparent text-[13.5px] outline-none placeholder:text-faint"
           />
+        </div>
+        <div className="mt-3.5 flex gap-2">
+          {(
+            [
+              { id: "all", label: "Todas", count: searched.length },
+              { id: "unread", label: "No leídas", count: unreadCount },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-[15px] py-2 text-[13px] font-extrabold transition-colors",
+                filter === f.id
+                  ? "bg-foreground text-background"
+                  : "bg-surface-2 text-mute hover:bg-subtle"
+              )}
+            >
+              {f.label}
+              <span className="opacity-70">{f.count}</span>
+            </button>
+          ))}
         </div>
       </header>
 
-      <div className="flex gap-1.5 border-b px-4 py-2.5">
-        {(
-          [
-            { id: "all", label: "Todas", count: searched.length },
-            { id: "unread", label: "No leídas", count: unreadCount },
-          ] as const
-        ).map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-[5px] text-[12.5px] font-medium transition-colors",
-              filter === f.id
-                ? "border-brand bg-brand text-white"
-                : "bg-background text-text-2 hover:bg-accent"
-            )}
-          >
-            {f.label}
-            <span
-              className={cn(
-                "rounded-full px-1.5 text-[11px]",
-                filter === f.id ? "bg-white/20" : "bg-secondary text-text-3"
-              )}
-            >
-              {f.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-3 pb-4 pt-1">
         {loading ? (
           <p className="p-6 text-center text-xs text-text-3">Cargando…</p>
         ) : conversations.length === 0 ? (
@@ -144,37 +133,48 @@ export function ConversationList({
               const unread = c.unreadCount > 0;
               const active = selectedId === c.id;
               return (
-                <li key={c.id} className="relative border-b border-border/70">
-                  {active && (
-                    <span className="absolute inset-y-0 left-0 w-[3px] bg-brand" />
-                  )}
+                <li key={c.id} className="mb-0.5">
                   <button
                     onClick={() => onSelect(c.id)}
                     className={cn(
-                      "flex w-full items-start gap-[11px] px-4 py-[var(--row-py)] text-left transition-colors",
-                      active ? "bg-[var(--bg-active)]" : "hover:bg-subtle"
+                      "flex w-full items-start gap-3 rounded-[13px] px-3 py-[13px] text-left transition-colors",
+                      active
+                        ? "bg-brand-tint shadow-[inset_3px_0_0_var(--accent)]"
+                        : "hover:bg-subtle"
                     )}
                   >
                     <span className="relative shrink-0">
-                      <ContactAvatar name={c.contact.name} seed={c.contact.id} size="lg" />
-                      {c.windowOpen && (
-                        <span className="absolute bottom-0 right-0 h-[11px] w-[11px] rounded-full border-[2.5px] border-background bg-success" />
-                      )}
+                      <ContactAvatar
+                        name={c.contact.name}
+                        seed={c.contact.id}
+                        size="lg"
+                      />
+                      <span
+                        title={
+                          c.windowOpen
+                            ? "Ventana abierta (24 h)"
+                            : "Ventana cerrada — usa una plantilla"
+                        }
+                        className={cn(
+                          "absolute bottom-0 right-0 h-[11px] w-[11px] rounded-full border-2 border-surface",
+                          c.windowOpen ? "bg-success" : "bg-[#B4ADA0]"
+                        )}
+                      />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
+                      <span className="flex items-baseline justify-between gap-2">
                         <span
                           className={cn(
-                            "truncate text-sm",
-                            unread ? "font-[680]" : "font-semibold"
+                            "truncate text-[14.5px] font-bold",
+                            !unread && "font-semibold"
                           )}
                         >
                           {c.contact.name}
                         </span>
                         <span
                           className={cn(
-                            "shrink-0 text-[11.5px]",
-                            unread ? "font-semibold text-brand" : "text-text-3"
+                            "shrink-0 text-[11px] font-semibold",
+                            unread ? "text-brand" : "text-faint"
                           )}
                         >
                           {formatTime(c.lastMessageAt)}
@@ -184,7 +184,7 @@ export function ConversationList({
                         <span
                           className={cn(
                             "truncate text-[13px]",
-                            unread ? "font-medium text-text-2" : "text-text-3"
+                            unread ? "font-medium text-text-2" : "text-mute"
                           )}
                         >
                           {previewText(c.preview)}
@@ -195,21 +195,16 @@ export function ConversationList({
                           </span>
                         )}
                       </span>
-                      <span className="mt-1.5 flex items-center gap-1.5">
+                      <span className="mt-[7px] flex flex-wrap items-center gap-1.5">
                         {c.stageName && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border bg-secondary px-2 py-0.5 text-[11px] text-text-2">
-                            <span
-                              className="h-[7px] w-[7px] rounded-full"
-                              style={{
-                                background: STAGE_DOT[c.stageName] ?? "#9ca3af",
-                              }}
-                            />
-                            {c.stageName}
-                          </span>
+                          <StageTag
+                            name={c.stageName}
+                            color={colorFor(c.stageName)}
+                          />
                         )}
                         {c.handoffAt && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-2 py-0.5 text-[11px] text-[color:var(--warning-fg)]">
-                            <UserRound className="h-3 w-3" strokeWidth={1.7} />
+                          <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-bold text-mute">
+                            <UserRound className="h-3 w-3" strokeWidth={2.2} />
                             Atención humana
                           </span>
                         )}

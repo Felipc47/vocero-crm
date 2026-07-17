@@ -82,11 +82,11 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
             >
               <div
                 className={cn(
-                  "max-w-[64%] rounded-2xl px-3.5 pb-1.5 pt-2 text-sm leading-[1.45] shadow-sm",
+                  "max-w-[74%] rounded-2xl px-[15px] pb-1.5 pt-2 text-sm leading-[1.45]",
                   out
-                    ? "border border-brand-soft bg-bubble-out text-bubble-out-text"
-                    : "border border-border bg-surface",
-                  !grouped && (out ? "rounded-tr-[6px]" : "rounded-tl-[6px]")
+                    ? "bg-bubble-out text-bubble-out-text"
+                    : "border border-border bg-surface shadow-sm",
+                  !grouped && (out ? "rounded-br-[5px]" : "rounded-bl-[5px]")
                 )}
               >
                 {m.type === "text" || m.type === "template" ? (

@@ -1,4 +1,4 @@
-import { desc, ilike, or } from "drizzle-orm";
+import { desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
@@ -14,9 +14,23 @@ export const GET = withAuth(async (session, req: Request) => {
   const includeArchived = url.searchParams.get("archived") === "true";
 
   const db = getDb();
+  // La etapa del lead viaja con cada contacto (tag de color del mock SEOMOS):
+  // join de solo lectura contacto → lead → etapa, sin tocar el modelo.
   const rows = await db
-    .select()
+    .select({
+      contact: schema.contact,
+      stage: {
+        name: schema.pipelineStage.name,
+        kind: schema.pipelineStage.kind,
+        position: schema.pipelineStage.position,
+      },
+    })
     .from(schema.contact)
+    .leftJoin(schema.lead, eq(schema.lead.contactId, schema.contact.id))
+    .leftJoin(
+      schema.pipelineStage,
+      eq(schema.pipelineStage.id, schema.lead.stageId)
+    )
     .where(
       scoped(
         schema.contact.organizationId,
@@ -33,8 +47,8 @@ export const GET = withAuth(async (session, req: Request) => {
     .limit(200);
 
   const contacts = rows
-    .filter((c) => includeArchived || !c.archivedAt)
-    .map(serializeContact);
+    .filter((r) => includeArchived || !r.contact.archivedAt)
+    .map((r) => ({ ...serializeContact(r.contact), stage: r.stage ?? null }));
   return Response.json({ contacts });
 });
 

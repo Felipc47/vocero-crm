@@ -196,16 +196,21 @@ function Header({
   disabled: boolean;
 }) {
   return (
-    <header className="flex items-center justify-between border-b px-6 py-4">
+    <header className="flex items-center gap-3.5 border-b bg-surface px-[30px] py-[18px]">
+      <FlaskConical className="h-[22px] w-[22px] shrink-0 text-brand" strokeWidth={2} />
       <div>
-        <h2 className="flex items-center gap-2 font-semibold">
-          <FlaskConical className="h-4 w-4 text-primary" /> Laboratorio
+        <h2 className="font-display text-[22px] font-bold leading-tight">
+          Laboratorio
         </h2>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[12.5px] font-semibold text-mute">
           Sandbox interno — no envía mensajes reales
         </p>
       </div>
-      <Button onClick={onLaunch} disabled={disabled || running || launching}>
+      <Button
+        className="ml-auto"
+        onClick={onLaunch}
+        disabled={disabled || running || launching}
+      >
         <Play className="h-4 w-4" />
         {running ? "Corrida en curso…" : "Correr evaluación"}
       </Button>
@@ -303,13 +308,22 @@ function Report({
         </CardHeader>
         {run.status === "done" && (
           <CardContent>
-            <div className="grid grid-cols-3 gap-3 text-center text-sm">
-              {(["verde", "amarillo", "rojo"] as const).map((v) => (
-                <div key={v} className="rounded-md border p-3">
-                  <p className="text-2xl font-bold">
+            {/* Tiles del mock: números Poppins grandes en verde / ámbar / naranja */}
+            <div className="grid grid-cols-3 gap-3.5 text-center">
+              {(
+                [
+                  { v: "verde", label: "Verdes", cls: "text-success" },
+                  { v: "amarillo", label: "Amarillos", cls: "text-[#E8A13D]" },
+                  { v: "rojo", label: "Rojos", cls: "text-brand" },
+                ] as const
+              ).map(({ v, label, cls }) => (
+                <div key={v} className="rounded-[14px] border bg-surface p-5">
+                  <p className={`font-display text-[32px] font-extrabold ${cls}`}>
                     {cases.filter((c) => c.veredicto === v).length}
                   </p>
-                  <p className="capitalize text-muted-foreground">{v}s</p>
+                  <p className="mt-0.5 text-[13px] font-bold text-mute">
+                    {label}
+                  </p>
                 </div>
               ))}
             </div>
@@ -351,16 +365,20 @@ function CaseCard({ testCase, onApplied }: { testCase: Case; onApplied: () => vo
           className="flex w-full items-center justify-between"
           onClick={() => setOpen(!open)}
         >
-          <span className="flex items-center gap-2 text-sm font-semibold">
+          <span className="flex items-center gap-2.5 text-[14.5px] font-bold">
             {icon}
             {c.personaLabel}
             {c.status === "judge_failed" && (
               <Badge variant="secondary">sin veredicto</Badge>
             )}
           </span>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2 text-xs font-bold text-mute">
             {c.hallazgos.length > 0 && `${c.hallazgos.length} hallazgo(s)`}
-            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {open ? (
+              <ChevronUp className="h-4 w-4 text-faint" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-faint" />
+            )}
           </span>
         </button>
       </CardHeader>

@@ -80,11 +80,11 @@ export function Composer({
   return (
     <div className="border-t bg-background px-[18px] pb-3.5 pt-3">
       {templates.length > 0 && (
-        <div className="mb-2.5 flex flex-wrap gap-1.5">
+        <div className="mb-2.5 flex flex-wrap gap-2">
           {templates.slice(0, 4).map((t) => (
             <button
               key={t.id}
-              className="rounded-full border bg-secondary px-3 py-1 text-xs font-medium text-text-2 transition-colors hover:border-brand-soft hover:bg-brand-tint hover:text-brand-text"
+              className="rounded-full border bg-surface-2 px-3 py-1.5 text-xs font-bold text-mute transition-colors hover:border-brand-soft hover:bg-brand-tint hover:text-brand-text"
               onClick={() => {
                 const firstName = conversation.contact.name.split(" ")[0] ?? "";
                 setText(t.body.replace(/\{\{\s*1\s*\}\}/g, firstName));
@@ -98,7 +98,7 @@ export function Composer({
           ))}
         </div>
       )}
-      <div className="flex items-end gap-2 rounded-md border bg-background px-3 py-2 transition-shadow focus-within:border-brand focus-within:ring-[3px] focus-within:ring-brand-soft">
+      <div className="flex items-end gap-2.5 rounded-[14px] border bg-surface-2 py-2 pl-4 pr-2 transition-shadow focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft">
         <textarea
           ref={taRef}
           placeholder="Escribe una respuesta…"
@@ -114,23 +114,23 @@ export function Composer({
               void submit();
             }
           }}
-          className="max-h-[120px] w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-3"
+          className="max-h-[120px] w-full resize-none self-center bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-3"
         />
         <button
           onClick={() => void submit()}
           disabled={sending || text.trim().length === 0}
           aria-label="Enviar"
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-accent transition-opacity hover:bg-brand-hover",
+            "flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] bg-brand text-white shadow-accent transition-opacity hover:bg-brand-hover",
             (sending || !text.trim()) && "opacity-40 shadow-none"
           )}
         >
-          <Send className="h-[18px] w-[18px]" strokeWidth={2} />
+          <Send className="h-[19px] w-[19px]" strokeWidth={2.2} />
         </button>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
         {error ? <p className="text-xs text-destructive">{error}</p> : <span />}
-        <p className="text-[11px] text-text-3">
+        <p className="text-[11px] font-semibold text-faint">
           Ventana abierta · quedan {formatRemaining(conversation.windowRemainingMs)}
         </p>
       </div>

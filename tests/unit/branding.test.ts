@@ -34,14 +34,14 @@ describe("white-label: acento", () => {
 });
 
 describe("white-label: normalización", () => {
-  it("nombre vacío o nulo → default 'Vocero'; se recorta a 30", () => {
-    expect(normalizeBranding(null).name).toBe("Vocero");
-    expect(normalizeBranding({ name: "   " }).name).toBe("Vocero");
+  it("nombre vacío o nulo → default de marca; se recorta a 30", () => {
+    expect(normalizeBranding(null).name).toBe("Seomos CRM");
+    expect(normalizeBranding({ name: "   " }).name).toBe("Seomos CRM");
     expect(normalizeBranding({ name: "x".repeat(50) }).name).toHaveLength(30);
   });
 
-  it("acento inválido → default", () => {
-    expect(normalizeBranding({ accent: "azul" }).accent).toBe("#3f5972");
+  it("acento inválido → default de marca (naranja Seomos)", () => {
+    expect(normalizeBranding({ accent: "azul" }).accent).toBe("#e84b1d");
     expect(normalizeBranding({ accent: "#3F6B66" }).accent).toBe("#3f6b66");
   });
 });

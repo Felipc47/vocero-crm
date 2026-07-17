@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { PanelRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
 import { ContactAvatar } from "@/components/avatar";
 import type { ConversationDto, MessageDto } from "@/lib/types";
 import { useEvents } from "@/components/use-events";
+import { SlideOver } from "@/components/ui/slide-over";
 import { ConversationList } from "./conversation-list";
 import { MessageThread } from "./message-thread";
 import { Composer } from "./composer";
@@ -18,18 +18,12 @@ export function InboxClient() {
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageDto[]>([]);
-  const [panelOpen, setPanelOpen] = useState(true);
+  // Slide-over de detalles del lead (mock SEOMOS): se abre con "Ver detalles".
+  const [detailOpen, setDetailOpen] = useState(false);
   // Se incrementa con cada evento SSE que puede cambiar la etapa/lead o el
   // estado del agente: el panel de detalles lo observa y refetch en vivo.
   const [detailRev, setDetailRev] = useState(0);
 
-  useEffect(() => {
-    setPanelOpen(localStorage.getItem("seomos.panelOpen") !== "false");
-  }, []);
-  const togglePanel = useCallback((open: boolean) => {
-    setPanelOpen(open);
-    localStorage.setItem("seomos.panelOpen", String(open));
-  }, []);
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
   const lastFetchRef = useRef<string | null>(null);
@@ -179,6 +173,7 @@ export function InboxClient() {
       if (!res?.ok) return false;
       setSelectedId(null);
       setMessages([]);
+      setDetailOpen(false);
       setConversations(
         (prev) => prev?.filter((c) => c.contact.id !== contactId) ?? prev
       );
@@ -190,7 +185,7 @@ export function InboxClient() {
 
   return (
     <div className="flex h-full">
-      <section className="w-[360px] shrink-0 overflow-hidden border-r">
+      <section className="w-[400px] shrink-0 overflow-hidden border-r">
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -202,39 +197,35 @@ export function InboxClient() {
       <section className="flex min-w-0 flex-1 flex-col">
         {selected ? (
           <>
-            <header className="flex items-center justify-between border-b bg-background px-4 py-2.5">
-              <div className="flex items-center gap-3">
-                <ContactAvatar
-                  name={selected.contact.name}
-                  seed={selected.contact.id}
-                  size="md"
-                />
-                <div>
-                  <p className="text-[15px] font-[650] leading-tight">
-                    {selected.contact.name}
-                  </p>
-                  <p
-                    className={
-                      selected.windowOpen
-                        ? "text-xs font-medium text-success"
-                        : "text-xs text-text-3"
-                    }
-                  >
-                    {selected.windowOpen
-                      ? "ventana abierta"
-                      : `+${selected.contact.phone}`}
-                  </p>
-                </div>
-              </div>
-              {!panelOpen && (
-                <button
-                  onClick={() => togglePanel(true)}
-                  aria-label="Mostrar detalles"
-                  className="rounded-sm border p-1.5 text-text-3 hover:bg-accent hover:text-foreground"
+            <header className="flex items-center gap-3 border-b bg-surface px-[22px] py-[15px]">
+              <ContactAvatar
+                name={selected.contact.name}
+                seed={selected.contact.id}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-base font-semibold leading-tight">
+                  {selected.contact.name}
+                </p>
+                <p
+                  className={
+                    selected.windowOpen
+                      ? "text-xs font-bold text-success"
+                      : "text-xs text-text-3"
+                  }
                 >
-                  <PanelRight className="h-4 w-4" strokeWidth={1.7} />
-                </button>
-              )}
+                  {selected.windowOpen
+                    ? "ventana abierta"
+                    : `+${selected.contact.phone}`}
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailOpen(true)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border bg-surface px-[15px] py-[9px] text-[13px] font-bold transition-colors hover:bg-surface-2"
+              >
+                Ver detalles
+                <ChevronRight className="h-[15px] w-[15px]" strokeWidth={2.2} />
+              </button>
             </header>
             <MessageThread messages={messages} />
             <Composer
@@ -254,25 +245,21 @@ export function InboxClient() {
         )}
       </section>
 
-      <section
-        className={cn(
-          "shrink-0 overflow-hidden border-l transition-[width] duration-[220ms]",
-          panelOpen && selected ? "w-[320px]" : "w-0 border-l-0"
-        )}
-      >
-        {selected && (
-          <div className="h-full w-[320px]">
-            <ContactPanel
-              conversation={selected}
-              refreshKey={detailRev}
-              onPatchConversation={patchConversation}
-              onResetConversation={resetConversation}
-              onDeleteContact={deleteContact}
-              onClose={() => togglePanel(false)}
-            />
-          </div>
-        )}
-      </section>
+      {detailOpen && selected && (
+        <SlideOver
+          onClose={() => setDetailOpen(false)}
+          ariaLabel={`Detalles de ${selected.contact.name}`}
+        >
+          <ContactPanel
+            conversation={selected}
+            refreshKey={detailRev}
+            onPatchConversation={patchConversation}
+            onResetConversation={resetConversation}
+            onDeleteContact={deleteContact}
+            onClose={() => setDetailOpen(false)}
+          />
+        </SlideOver>
+      )}
     </div>
   );
 }

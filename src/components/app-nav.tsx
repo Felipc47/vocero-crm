@@ -30,7 +30,10 @@ const NAV = [
 ] as const;
 
 const linkBase =
-  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-bold transition-colors";
+  "flex items-center gap-3 rounded-[11px] px-[13px] py-[11px] text-sm font-bold transition-all";
+/* Mock SEOMOS: el item activo va en acento sólido con sombra, no en soft. */
+const linkActive = "bg-brand text-white shadow-accent";
+const linkIdle = "text-mute hover:bg-surface-2 hover:text-foreground";
 
 export function AppNav({
   branding,
@@ -97,23 +100,17 @@ export function AppNav({
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                linkBase,
-                active
-                  ? "bg-brand-soft text-brand-text"
-                  : "text-mute hover:bg-surface-2 hover:text-foreground"
-              )}
+              className={cn(linkBase, active ? linkActive : linkIdle)}
             >
-              <item.icon
-                className={cn("h-[19px] w-[19px]", active && "text-brand")}
-                strokeWidth={1.9}
-              />
+              <item.icon className="h-[19px] w-[19px]" strokeWidth={1.9} />
               <span className="flex-1">{item.label}</span>
               {"badge" in item && item.badge && unread > 0 && (
                 <span
                   className={cn(
                     "flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1.5 text-[10.5px] font-extrabold",
-                    active ? "bg-brand text-white" : "bg-border-strong text-foreground"
+                    active
+                      ? "bg-white/25 text-white"
+                      : "bg-surface-2 text-mute"
                   )}
                 >
                   {unread}
@@ -141,18 +138,10 @@ export function AppNav({
           href="/settings"
           className={cn(
             linkBase,
-            pathname.startsWith("/settings")
-              ? "bg-brand-soft text-brand-text"
-              : "text-mute hover:bg-surface-2 hover:text-foreground"
+            pathname.startsWith("/settings") ? linkActive : linkIdle
           )}
         >
-          <Settings
-            className={cn(
-              "h-[18px] w-[18px]",
-              pathname.startsWith("/settings") && "text-brand"
-            )}
-            strokeWidth={1.9}
-          />
+          <Settings className="h-[18px] w-[18px]" strokeWidth={1.9} />
           Ajustes
         </Link>
 
