@@ -156,6 +156,38 @@ export function InboxClient() {
     [refetchConversations]
   );
 
+  // Reinicia la conversación seleccionada: borra su historial y limpia estado.
+  const resetConversation = useCallback(async (): Promise<boolean> => {
+    const id = selectedIdRef.current;
+    if (!id) return false;
+    const res = await fetch(`/api/conversations/${id}/reset`, {
+      method: "POST",
+    }).catch(() => null);
+    if (!res?.ok) return false;
+    if (selectedIdRef.current === id) setMessages([]);
+    void refetchMessages(id);
+    void refetchConversations();
+    return true;
+  }, [refetchMessages, refetchConversations]);
+
+  // Borra un contacto de forma permanente y sale de su conversación.
+  const deleteContact = useCallback(
+    async (contactId: string): Promise<boolean> => {
+      const res = await fetch(`/api/contacts/${contactId}`, {
+        method: "DELETE",
+      }).catch(() => null);
+      if (!res?.ok) return false;
+      setSelectedId(null);
+      setMessages([]);
+      setConversations(
+        (prev) => prev?.filter((c) => c.contact.id !== contactId) ?? prev
+      );
+      void refetchConversations();
+      return true;
+    },
+    [refetchConversations]
+  );
+
   return (
     <div className="flex h-full">
       <section className="w-[360px] shrink-0 overflow-hidden border-r">
@@ -234,6 +266,8 @@ export function InboxClient() {
               conversation={selected}
               refreshKey={detailRev}
               onPatchConversation={patchConversation}
+              onResetConversation={resetConversation}
+              onDeleteContact={deleteContact}
               onClose={() => togglePanel(false)}
             />
           </div>

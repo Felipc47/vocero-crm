@@ -156,3 +156,59 @@ export async function updateConversation(
     .returning();
   return updated[0] ?? null;
 }
+
+/**
+ * Reinicia una conversación: borra todo su historial de mensajes y limpia el
+ * estado (ventana, no leídos, handoff), dejándola vacía. El contacto y la
+ * conversación se conservan; el agente arrancará sin contexto viejo cuando el
+ * contacto vuelva a escribir. Devuelve la conversación o null si no existe.
+ */
+export async function resetConversation(
+  organizationId: string,
+  conversationId: string
+) {
+  const db = getDb();
+  const existing = await db
+    .select({ id: schema.conversation.id })
+    .from(schema.conversation)
+    .where(
+      scoped(
+        schema.conversation.organizationId,
+        organizationId,
+        eq(schema.conversation.id, conversationId)
+      )
+    )
+    .limit(1);
+  if (!existing[0]) return null;
+
+  await db
+    .delete(schema.message)
+    .where(
+      scoped(
+        schema.message.organizationId,
+        organizationId,
+        eq(schema.message.conversationId, conversationId)
+      )
+    );
+
+  const updated = await db
+    .update(schema.conversation)
+    .set({
+      lastInboundAt: null,
+      lastMessageAt: null,
+      unreadCount: 0,
+      handoffAt: null,
+      handoffReason: null,
+      aiEnabled: true,
+      updatedAt: new Date(),
+    })
+    .where(
+      scoped(
+        schema.conversation.organizationId,
+        organizationId,
+        eq(schema.conversation.id, conversationId)
+      )
+    )
+    .returning();
+  return updated[0] ?? null;
+}

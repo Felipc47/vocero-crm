@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Sparkles, UserRound } from "lucide-react";
+import { Check, ChevronRight, RotateCcw, Sparkles, Trash2, UserRound } from "lucide-react";
 import type { ConversationDto, StageDto } from "@/lib/types";
 import { cn, formatPhone } from "@/lib/utils";
 import { ContactAvatar } from "@/components/avatar";
@@ -20,6 +20,8 @@ export function ContactPanel({
   conversation,
   refreshKey = 0,
   onPatchConversation,
+  onResetConversation,
+  onDeleteContact,
   onClose,
 }: {
   conversation: ConversationDto;
@@ -29,11 +31,17 @@ export function ContactPanel({
     aiEnabled?: boolean;
     reactivate?: boolean;
   }) => Promise<void>;
+  /** Borra el historial de la conversación y limpia su estado. */
+  onResetConversation: () => Promise<boolean>;
+  /** Borra el contacto de forma permanente (cascada). */
+  onDeleteContact: (contactId: string) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [notes, setNotes] = useState("");
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [stages, setStages] = useState<StageDto[]>([]);
   const [currentStageId, setCurrentStageId] = useState<string | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
@@ -304,6 +312,55 @@ export function ContactPanel({
           >
             {savingNotes ? "Guardando…" : "Guardar notas"}
           </Button>
+        </section>
+
+        {/* Acciones destructivas */}
+        <section className="border-t p-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-3">
+            Acciones
+          </p>
+          <div className="space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full justify-start gap-2"
+              disabled={resetting || deleting}
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    "¿Reiniciar esta conversación? Se borrará todo el historial de mensajes. El contacto y su etapa del pipeline se conservan."
+                  )
+                )
+                  return;
+                setResetting(true);
+                await onResetConversation();
+                setResetting(false);
+              }}
+            >
+              <RotateCcw className="h-4 w-4" strokeWidth={1.7} />
+              {resetting ? "Reiniciando…" : "Reiniciar conversación"}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="w-full justify-start gap-2"
+              disabled={deleting || resetting}
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    `¿Borrar a ${conversation.contact.name}? Se eliminarán de forma permanente el contacto, su conversación, todos los mensajes y su tarjeta del pipeline. Esta acción no se puede deshacer.`
+                  )
+                )
+                  return;
+                setDeleting(true);
+                const ok = await onDeleteContact(conversation.contact.id);
+                if (!ok) setDeleting(false); // en éxito, el panel se desmonta
+              }}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.7} />
+              {deleting ? "Borrando…" : "Borrar contacto"}
+            </Button>
+          </div>
         </section>
       </div>
     </div>

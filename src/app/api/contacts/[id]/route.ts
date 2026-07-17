@@ -65,3 +65,24 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   if (!updated[0]) return apiError(404, "not_found", "Contacto no encontrado");
   return Response.json({ contact: serializeContact(updated[0]) });
 });
+
+/**
+ * Borrado permanente: elimina el contacto y, por cascada de BD, su lead del
+ * pipeline, su conversación y todos los mensajes. Irreversible.
+ */
+export const DELETE = withAuth(async (session, _req: Request, ctx: Params) => {
+  const { id } = await ctx.params;
+  const db = getDb();
+  const deleted = await db
+    .delete(schema.contact)
+    .where(
+      scoped(
+        schema.contact.organizationId,
+        session.organizationId,
+        eq(schema.contact.id, id)
+      )
+    )
+    .returning({ id: schema.contact.id });
+  if (!deleted[0]) return apiError(404, "not_found", "Contacto no encontrado");
+  return Response.json({ ok: true });
+});
