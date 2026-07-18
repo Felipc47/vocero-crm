@@ -59,7 +59,12 @@ export function aiMockCompletion(messages: InMessage[]): string {
     emailMatch &&
     (text.includes("agend") || text.includes("reuni"))
   ) {
-    const start = new Date(Date.now() + 24 * 3600_000);
+    // "hoy mismo" simula al modelo pidiendo ANTES de las 48h hábiles: el
+    // servidor debe rechazarlo y proponer la primera disponibilidad.
+    const tooSoon = text.includes("hoy mismo");
+    const start = new Date(
+      Date.now() + (tooSoon ? 2 * 3600_000 : 5 * 24 * 3600_000)
+    );
     start.setMinutes(0, 0, 0);
     return JSON.stringify({
       action: "schedule_meeting",

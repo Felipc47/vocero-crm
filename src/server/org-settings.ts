@@ -21,6 +21,8 @@ const calendarSettingsSchema = z.object({
   defaultTitle: z.string().trim().max(120).default("Sesión de diagnóstico"),
   /** Duración por defecto en minutos. */
   defaultDurationMin: z.number().int().min(15).max(240).default(45),
+  /** Zona horaria IANA del negocio (para interpretar y proponer fechas). */
+  timezone: z.string().trim().min(1).default("America/Bogota"),
 });
 export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
 

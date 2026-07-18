@@ -10,8 +10,52 @@ import { AgentAction, degradeAction, resolveStage, type AgentActionType } from "
 import { matchesHandoffIntent } from "@/server/ai/handoff";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
+import { minSchedulableStart } from "@/lib/business-days";
 import { getGoogleConnection } from "@/server/google/credentials";
 import { ScheduleError, scheduleMeeting } from "@/server/google/scheduling";
+import { getCalendarSettings } from "@/server/org-settings";
+import type { SchedulingContext } from "@/server/ai/prompts";
+
+/** Etiqueta legible de una fecha en la zona del negocio. */
+function formatInTz(d: Date, timezone: string): string {
+  return d.toLocaleString("es-CO", {
+    timeZone: timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+/** Offset UTC de la zona (ej. "-05:00") para el ISO que produce el modelo. */
+function utcOffsetOf(timezone: string, at: Date): string {
+  const part = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "longOffset",
+  })
+    .formatToParts(at)
+    .find((p) => p.type === "timeZoneName")?.value; // "GMT-5" | "GMT-05:30"
+  const m = part?.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  if (!m) return "-05:00";
+  const sign = m[1] ?? "-";
+  const hh = (m[2] ?? "5").padStart(2, "0");
+  const mm = m[3] ?? "00";
+  return `${sign}${hh}:${mm}`;
+}
+
+/** Contexto temporal del agente (004): hoy + primera disponibilidad. */
+function buildSchedulingContext(timezone: string): SchedulingContext {
+  const now = new Date();
+  return {
+    nowLabel: formatInTz(now, timezone),
+    minStartLabel: formatInTz(minSchedulableStart(now, timezone), timezone),
+    timezone,
+    utcOffset: utcOffsetOf(timezone, now),
+  };
+}
 
 /**
  * Turno del agente (FR-021..FR-025).
@@ -148,15 +192,26 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   // 004: la acción schedule_meeting solo se ofrece con Calendar conectado y
   // NUNCA en el sandbox del Laboratorio (una evaluación no crea eventos).
   let calendarAvailable = false;
+  let scheduling: SchedulingContext | undefined;
   if (!conversation.isTest && isGoogleConfigured()) {
     const googleConn = await getGoogleConnection(organizationId);
     calendarAvailable = googleConn?.status === "connected";
+    if (calendarAvailable) {
+      const calSettings = await getCalendarSettings(organizationId);
+      scheduling = buildSchedulingContext(calSettings.timezone);
+    }
   }
 
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: buildAgentSystemPrompt({ profile, kb, stages, calendarAvailable }),
+      content: buildAgentSystemPrompt({
+        profile,
+        kb,
+        stages,
+        calendarAvailable,
+        scheduling,
+      }),
     },
     ...history
       .filter((m) => m.text)
@@ -213,7 +268,12 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       return;
     }
     case "schedule_meeting": {
-      await executeScheduleMeeting(conversation, action, calendarAvailable);
+      await executeScheduleMeeting(
+        conversation,
+        action,
+        calendarAvailable,
+        scheduling
+      );
       return;
     }
   }
@@ -226,7 +286,8 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
 async function executeScheduleMeeting(
   conversation: Conversation,
   action: Extract<AgentActionType, { action: "schedule_meeting" }>,
-  calendarAvailable: boolean
+  calendarAvailable: boolean,
+  scheduling: SchedulingContext | undefined
 ): Promise<void> {
   const start = new Date(action.datetime);
   if (!calendarAvailable || Number.isNaN(start.getTime())) {
@@ -236,6 +297,21 @@ async function executeScheduleMeeting(
       conversation,
       action.reply ??
         "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: mañana a las 3:00 p.m."
+    );
+    return;
+  }
+
+  // Regla de negocio (004): la primera disponibilidad son 48 horas hábiles
+  // después del contacto. El servidor la aplica aunque el modelo se equivoque.
+  const minStart = minSchedulableStart(
+    new Date(),
+    scheduling?.timezone ?? "America/Bogota"
+  );
+  if (start.getTime() < minStart.getTime()) {
+    const minLabel = scheduling?.minStartLabel ?? "dentro de dos días hábiles";
+    await deliverReply(
+      conversation,
+      `Para darte una buena atención, la primera disponibilidad de nuestro equipo es a partir del ${minLabel}. ¿Te funciona ese día u otro posterior? Con gusto lo agendo.`
     );
     return;
   }

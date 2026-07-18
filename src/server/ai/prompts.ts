@@ -22,12 +22,26 @@ export function renderKb(entries: KbEntry[]): string {
  * System prompt del agente (v1: inyecta el KB completo — el límite se
  * documenta con el contador de tamaño en la UI).
  */
+/** 004: contexto temporal para que el agente interprete y proponga fechas. */
+export type SchedulingContext = {
+  /** Fecha/hora actuales legibles, en la zona del negocio. */
+  nowLabel: string;
+  /** Primer momento agendable legible (48 h hábiles tras el contacto). */
+  minStartLabel: string;
+  /** Zona horaria IANA del negocio (ej. America/Bogota). */
+  timezone: string;
+  /** Offset a usar en el ISO (ej. -05:00). */
+  utcOffset: string;
+};
+
 export function buildAgentSystemPrompt(input: {
   profile: AgentProfile;
   kb: KbEntry[];
   stages: { name: string }[];
   /** 004: true si Google Calendar está conectado — habilita schedule_meeting. */
   calendarAvailable?: boolean;
+  /** 004: presente solo cuando calendarAvailable. */
+  scheduling?: SchedulingContext;
 }): string {
   const { profile } = input;
   const stageNames = input.stages.map((s) => s.name).join(" | ");
@@ -41,6 +55,13 @@ export function buildAgentSystemPrompt(input: {
     profile.greeting ? `Saludo sugerido para conversaciones nuevas: ${profile.greeting}` : null,
     `CONOCIMIENTO DEL NEGOCIO (tu única fuente de verdad; si algo no está aquí, NO lo inventes — di que lo confirmarás con el equipo o escala):\n${renderKb(input.kb)}`,
     `Etapas del pipeline disponibles: ${stageNames}`,
+    input.calendarAvailable && input.scheduling
+      ? [
+          `FECHA Y HORA ACTUALES: ${input.scheduling.nowLabel} (zona ${input.scheduling.timezone}).`,
+          `Usa SIEMPRE esta fecha para interpretar expresiones como "mañana", "el viernes" o "la próxima semana".`,
+          `AGENDA DEL EQUIPO: la primera disponibilidad para reuniones es a partir del ${input.scheduling.minStartLabel} (48 horas hábiles después del contacto). NUNCA aceptes ni propongas un horario anterior; si el cliente pide antes, explícale con amabilidad y ofrece 2-3 opciones desde esa fecha (en horario laboral, 9:00 a 18:00).`,
+        ].join("\n")
+      : null,
     [
       "En cada turno respondes ÚNICAMENTE un objeto JSON con UNA acción:",
       '- {"action":"none"} — no responder nada.',
@@ -50,7 +71,7 @@ export function buildAgentSystemPrompt(input: {
       '- {"action":"handoff","reason":"...","farewell":"..."} — escalar a un humano (farewell opcional para despedirte).',
       ...(input.calendarAvailable
         ? [
-            '- {"action":"schedule_meeting","email":"...","datetime":"<ISO 8601 con zona, ej. 2026-07-20T15:00:00-05:00>","reply":"..."} — agendar la reunión/sesión de diagnóstico en el calendario (reply opcional para confirmar).',
+            `- {"action":"schedule_meeting","email":"...","datetime":"<ISO 8601 con offset ${input.scheduling?.utcOffset ?? "-05:00"}, ej. 2026-07-20T15:00:00${input.scheduling?.utcOffset ?? "-05:00"}>","reply":"..."} — agendar la reunión/sesión de diagnóstico en el calendario (reply opcional para confirmar).`,
           ]
         : []),
       "Reglas duras:",

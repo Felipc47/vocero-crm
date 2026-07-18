@@ -36,7 +36,12 @@ const putSchema = z.object({
 export const PUT = withAuth(async (session, req: Request) => {
   const body = await parseBody(req, putSchema);
   if (!body.ok) return body.response;
-  await saveCalendarSettings(session.organizationId, body.data);
+  // El timezone no se edita desde esta UI: se preserva el guardado.
+  const current = await getCalendarSettings(session.organizationId);
+  await saveCalendarSettings(session.organizationId, {
+    ...body.data,
+    timezone: current.timezone,
+  });
   return Response.json({ ok: true });
 });
 
