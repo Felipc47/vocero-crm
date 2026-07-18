@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ContactAvatar } from "@/components/avatar";
+import { cn } from "@/lib/utils";
 import type { ConversationDto, MessageDto } from "@/lib/types";
 import { useEvents } from "@/components/use-events";
 import { SlideOver } from "@/components/ui/slide-over";
@@ -185,7 +186,14 @@ export function InboxClient() {
 
   return (
     <div className="flex h-full">
-      <section className="w-[400px] shrink-0 overflow-hidden border-r">
+      {/* Master-detail en mobile: lista a pantalla completa sin selección;
+          con selección se muestra solo el hilo (botón atrás en el header). */}
+      <section
+        className={cn(
+          "w-full shrink-0 overflow-hidden md:w-[400px] md:border-r",
+          selected && "hidden md:block"
+        )}
+      >
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -194,10 +202,22 @@ export function InboxClient() {
         />
       </section>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section
+        className={cn(
+          "min-w-0 flex-1 flex-col",
+          selected ? "flex" : "hidden md:flex"
+        )}
+      >
         {selected ? (
           <>
-            <header className="flex items-center gap-3 border-b bg-surface px-[22px] py-[15px]">
+            <header className="flex items-center gap-3 border-b bg-surface px-3 py-[15px] md:px-[22px]">
+              <button
+                onClick={() => setSelectedId(null)}
+                aria-label="Volver a la bandeja"
+                className="rounded-lg p-1.5 text-mute transition-colors hover:bg-surface-2 hover:text-foreground md:hidden"
+              >
+                <ChevronLeft className="h-[21px] w-[21px]" strokeWidth={2.2} />
+              </button>
               <ContactAvatar
                 name={selected.contact.name}
                 seed={selected.contact.id}

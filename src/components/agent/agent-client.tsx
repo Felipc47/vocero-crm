@@ -74,7 +74,7 @@ export function AgentClient() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="flex items-center gap-3.5 border-b bg-surface px-[30px] py-[18px]">
+      <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b bg-surface px-4 py-3 md:px-[30px] md:py-[18px]">
         <Sparkles className="h-[22px] w-[22px] text-brand" strokeWidth={2} />
         <h2 className="font-display text-[22px] font-bold">Agente de IA</h2>
         <div className="ml-auto flex items-center gap-3">

@@ -114,7 +114,7 @@ export function Composer({
               void submit();
             }
           }}
-          className="max-h-[120px] w-full resize-none self-center bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-3"
+          className="max-h-[120px] w-full resize-none self-center bg-transparent text-[16px] leading-relaxed outline-none placeholder:text-text-3 md:text-sm"
         />
         <button
           onClick={() => void submit()}

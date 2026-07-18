@@ -82,7 +82,7 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
             >
               <div
                 className={cn(
-                  "max-w-[74%] rounded-2xl px-[15px] pb-1.5 pt-2 text-sm leading-[1.45]",
+                  "max-w-[86%] rounded-2xl px-[15px] pb-1.5 pt-2 text-sm leading-[1.45] md:max-w-[74%]",
                   out
                     ? "bg-bubble-out text-bubble-out-text"
                     : "border border-border bg-surface shadow-sm",

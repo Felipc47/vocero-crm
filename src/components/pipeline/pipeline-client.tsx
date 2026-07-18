@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -38,8 +39,13 @@ export function PipelineClient() {
   const [managing, setManaging] = useState(false);
   const [query, setQuery] = useState("");
 
+  // Mouse y touch por separado: en táctil el drag se activa con long-press
+  // (delay) para no pelear con el scroll horizontal del tablero.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 220, tolerance: 8 },
+    })
   );
 
   const refetch = useCallback(async () => {
@@ -91,15 +97,15 @@ export function PipelineClient() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-4 border-b bg-surface px-7 py-[18px]">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b bg-surface px-4 py-3 md:px-7 md:py-[18px]">
         <h2 className="font-display text-[22px] font-bold">Pipeline</h2>
-        <div className="flex max-w-[300px] flex-1 items-center gap-2 rounded-[10px] border bg-surface-2 px-3 py-[8px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft">
+        <div className="order-last flex w-full items-center gap-2 rounded-[10px] border bg-surface-2 px-3 py-[8px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft md:order-none md:w-auto md:max-w-[300px] md:flex-1">
           <Search className="h-4 w-4 shrink-0 text-faint" strokeWidth={2} />
           <input
             placeholder="Buscar lead…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
+            className="w-full bg-transparent text-[16px] outline-none placeholder:text-faint md:text-[13px]"
           />
         </div>
         <button
@@ -111,7 +117,7 @@ export function PipelineClient() {
         </button>
       </header>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-[22px]">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 py-4 md:px-6 md:py-[22px]">
         <DndContext
           sensors={sensors}
           onDragStart={onDragStart}
@@ -154,7 +160,7 @@ function StageColumn({ stage, leads }: { stage: StageDto; leads: BoardLead[] }) 
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-[300px] shrink-0 flex-col rounded-2xl border-[1.5px] p-1.5 transition-colors",
+        "flex h-full w-[280px] shrink-0 flex-col rounded-2xl border-[1.5px] p-1.5 transition-colors md:w-[300px]",
         isOver ? "border-dashed border-brand" : "border-transparent"
       )}
       style={isOver ? { background: "color-mix(in srgb, var(--accent) 6%, transparent)" } : undefined}
@@ -189,7 +195,7 @@ function DraggableLead({ lead }: { lead: BoardLead }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={cn(isDragging && "opacity-40")}
+      className={cn("touch-manipulation", isDragging && "opacity-40")}
     >
       <LeadCard lead={lead} />
     </div>
@@ -264,7 +270,7 @@ function AddStageColumn({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <div className="w-[300px] shrink-0">
+    <div className="w-[280px] shrink-0 md:w-[300px]">
       {adding ? (
         <div className="rounded-[14px] border-[1.5px] border-brand bg-surface p-3.5">
           <input

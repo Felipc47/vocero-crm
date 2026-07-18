@@ -91,7 +91,7 @@ export function ConversationList({
             placeholder="Buscar conversación…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-[13.5px] outline-none placeholder:text-faint"
+            className="w-full bg-transparent text-[16px] outline-none placeholder:text-faint md:text-[13.5px]"
           />
         </div>
         <div className="mt-3.5 flex gap-2">

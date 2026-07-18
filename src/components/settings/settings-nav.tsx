@@ -16,7 +16,8 @@ const TABS = [
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav className="w-[210px] shrink-0 border-r px-4 py-[22px]">
+    /* Mobile: tabs horizontales con scroll; desktop: columna lateral de 210px. */
+    <nav className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2 md:w-[210px] md:flex-col md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-[22px]">
       {TABS.map((t) => {
         const active = pathname.startsWith(t.href);
         return (
@@ -24,7 +25,7 @@ export function SettingsNav() {
             key={t.href}
             href={t.href}
             className={cn(
-              "mb-0.5 block rounded-[10px] px-[15px] py-[11px] text-sm transition-colors",
+              "block whitespace-nowrap rounded-[10px] px-[15px] py-[9px] text-sm transition-colors md:py-[11px]",
               active
                 ? "bg-brand font-bold text-white"
                 : "font-semibold text-mute hover:bg-surface-2 hover:text-foreground"

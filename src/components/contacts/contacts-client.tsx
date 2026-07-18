@@ -64,7 +64,7 @@ export function ContactsClient() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-[18px] border-b bg-surface px-[30px] py-[18px]">
+      <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 border-b bg-surface px-4 py-3 md:px-[30px] md:py-[18px]">
         <h2 className="font-display text-[22px] font-bold">Contactos</h2>
         <div className="ml-auto flex items-center gap-2.5">
           <span className="text-[13px] font-bold">Ver archivados</span>
@@ -75,18 +75,18 @@ export function ContactsClient() {
             aria-label="Ver archivados"
           />
         </div>
-        <div className="flex w-[320px] items-center gap-2 rounded-[10px] border bg-surface-2 px-3 py-[9px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft">
+        <div className="order-last flex w-full items-center gap-2 rounded-[10px] border bg-surface-2 px-3 py-[9px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft md:order-none md:w-[320px]">
           <Search className="h-4 w-4 shrink-0 text-faint" strokeWidth={2} />
           <input
             placeholder="Buscar por nombre o teléfono…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
+            className="w-full bg-transparent text-[16px] outline-none placeholder:text-faint md:text-[13px]"
           />
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-[30px] pb-10 pt-5">
+      <div className="flex-1 overflow-y-auto px-4 pb-10 pt-5 md:px-[30px]">
         {contacts.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <p className="text-sm font-medium">Sin contactos</p>
@@ -100,7 +100,7 @@ export function ContactsClient() {
             {contacts.map((c) => (
               <li
                 key={c.id}
-                className="flex items-center gap-4 rounded-[14px] border bg-surface px-5 py-4 transition-colors hover:border-brand/50"
+                className="flex flex-wrap items-center gap-3 rounded-[14px] border bg-surface px-4 py-3.5 transition-colors hover:border-brand/50 md:gap-4 md:px-5 md:py-4"
               >
                 <ContactAvatar name={c.name} seed={c.id} size="lg" />
                 <div className="min-w-0 flex-1">
@@ -124,7 +124,7 @@ export function ContactsClient() {
                     className="shrink-0"
                   />
                 )}
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
                   <button
                     onClick={() => setEditing(c)}
                     className="rounded-[9px] bg-brand px-4 py-2 text-[13px] font-bold text-white transition-colors hover:bg-brand-hover"

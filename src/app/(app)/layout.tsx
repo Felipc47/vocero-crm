@@ -18,7 +18,7 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex h-dvh flex-col overflow-hidden bg-background md:flex-row">
         <AppNav
           branding={branding}
           userName={authSession?.user.name ?? "Usuario"}
