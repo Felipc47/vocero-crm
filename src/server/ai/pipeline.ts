@@ -10,10 +10,17 @@ import { AgentAction, degradeAction, resolveStage, type AgentActionType } from "
 import { matchesHandoffIntent } from "@/server/ai/handoff";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
-import { minSchedulableStart } from "@/lib/business-days";
+import {
+  isValidMeetingStart,
+  minSchedulableStart,
+  utcOffsetOf,
+} from "@/lib/business-days";
 import { getGoogleConnection } from "@/server/google/credentials";
 import { ScheduleError, scheduleMeeting } from "@/server/google/scheduling";
-import { getCalendarSettings } from "@/server/org-settings";
+import {
+  getCalendarSettings,
+  type CalendarSettings,
+} from "@/server/org-settings";
 import type { SchedulingContext } from "@/server/ai/prompts";
 
 /** Etiqueta legible de una fecha en la zona del negocio. */
@@ -30,28 +37,29 @@ function formatInTz(d: Date, timezone: string): string {
   });
 }
 
-/** Offset UTC de la zona (ej. "-05:00") para el ISO que produce el modelo. */
-function utcOffsetOf(timezone: string, at: Date): string {
-  const part = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    timeZoneName: "longOffset",
-  })
-    .formatToParts(at)
-    .find((p) => p.type === "timeZoneName")?.value; // "GMT-5" | "GMT-05:30"
-  const m = part?.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
-  if (!m) return "-05:00";
-  const sign = m[1] ?? "-";
-  const hh = (m[2] ?? "5").padStart(2, "0");
-  const mm = m[3] ?? "00";
-  return `${sign}${hh}:${mm}`;
+/** "9:00 a. m." desde minutos locales. */
+function minutesLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const suffix = h < 12 ? "a. m." : "p. m.";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
 /** Contexto temporal del agente (004): hoy + primera disponibilidad. */
-function buildSchedulingContext(timezone: string): SchedulingContext {
+function buildSchedulingContext(
+  settings: CalendarSettings
+): SchedulingContext {
   const now = new Date();
+  const timezone = settings.timezone;
+  const minStart = minSchedulableStart(now, timezone, {
+    leadDays: settings.leadTimeBusinessDays,
+    workStartMin: settings.workStartMin,
+  });
   return {
     nowLabel: formatInTz(now, timezone),
-    minStartLabel: formatInTz(minSchedulableStart(now, timezone), timezone),
+    minStartLabel: formatInTz(minStart, timezone),
+    workHoursLabel: `lunes a viernes de ${minutesLabel(settings.workStartMin)} a ${minutesLabel(settings.workEndMin)}, en franjas de ${settings.slotMinutes} minutos`,
     timezone,
     utcOffset: utcOffsetOf(timezone, now),
   };
@@ -193,12 +201,13 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   // NUNCA en el sandbox del Laboratorio (una evaluación no crea eventos).
   let calendarAvailable = false;
   let scheduling: SchedulingContext | undefined;
+  let calSettings: CalendarSettings | undefined;
   if (!conversation.isTest && isGoogleConfigured()) {
     const googleConn = await getGoogleConnection(organizationId);
     calendarAvailable = googleConn?.status === "connected";
     if (calendarAvailable) {
-      const calSettings = await getCalendarSettings(organizationId);
-      scheduling = buildSchedulingContext(calSettings.timezone);
+      calSettings = await getCalendarSettings(organizationId);
+      scheduling = buildSchedulingContext(calSettings);
     }
   }
 
@@ -272,7 +281,8 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
         conversation,
         action,
         calendarAvailable,
-        scheduling
+        scheduling,
+        calSettings
       );
       return;
     }
@@ -287,31 +297,49 @@ async function executeScheduleMeeting(
   conversation: Conversation,
   action: Extract<AgentActionType, { action: "schedule_meeting" }>,
   calendarAvailable: boolean,
-  scheduling: SchedulingContext | undefined
+  scheduling: SchedulingContext | undefined,
+  calSettings: CalendarSettings | undefined
 ): Promise<void> {
   const start = new Date(action.datetime);
-  if (!calendarAvailable || Number.isNaN(start.getTime())) {
+  if (!calendarAvailable || !calSettings || Number.isNaN(start.getTime())) {
     // Sin conexión (no debería ofrecerse) o fecha imposible de parsear:
     // pedir la fecha de nuevo en lugar de fallar.
     await deliverReply(
       conversation,
       action.reply ??
-        "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: mañana a las 3:00 p.m."
+        "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: el próximo martes a las 10:00 a.m."
     );
     return;
   }
 
-  // Regla de negocio (004): la primera disponibilidad son 48 horas hábiles
-  // después del contacto. El servidor la aplica aunque el modelo se equivoque.
-  const minStart = minSchedulableStart(
-    new Date(),
-    scheduling?.timezone ?? "America/Bogota"
-  );
+  // Regla de negocio (004): antelación mínima en días hábiles, a nivel de
+  // DÍA (el mínimo abre al inicio de la jornada — jamás "martes 9:24 p.m.").
+  const tz = calSettings.timezone;
+  const minStart = minSchedulableStart(new Date(), tz, {
+    leadDays: calSettings.leadTimeBusinessDays,
+    workStartMin: calSettings.workStartMin,
+  });
   if (start.getTime() < minStart.getTime()) {
     const minLabel = scheduling?.minStartLabel ?? "dentro de dos días hábiles";
     await deliverReply(
       conversation,
       `Para darte una buena atención, la primera disponibilidad de nuestro equipo es a partir del ${minLabel}. ¿Te funciona ese día u otro posterior? Con gusto lo agendo.`
+    );
+    return;
+  }
+
+  // Horario laboral y franjas: si el modelo propone fuera, se le pide al
+  // cliente una franja válida en lugar de crear un evento absurdo.
+  if (
+    !isValidMeetingStart(start, tz, {
+      workStartMin: calSettings.workStartMin,
+      workEndMin: calSettings.workEndMin,
+      slotMinutes: calSettings.slotMinutes,
+    })
+  ) {
+    await deliverReply(
+      conversation,
+      `Agendamos reuniones ${scheduling?.workHoursLabel ?? "de lunes a viernes en horario laboral"}. ¿Qué franja dentro de ese horario te queda bien?`
     );
     return;
   }

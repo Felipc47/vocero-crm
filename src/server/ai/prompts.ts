@@ -26,8 +26,10 @@ export function renderKb(entries: KbEntry[]): string {
 export type SchedulingContext = {
   /** Fecha/hora actuales legibles, en la zona del negocio. */
   nowLabel: string;
-  /** Primer momento agendable legible (48 h hábiles tras el contacto). */
+  /** Primer momento agendable legible (antelación en días hábiles). */
   minStartLabel: string;
+  /** Horario laboral legible ("lunes a viernes de 9:00 a. m. a 5:30 p. m., …"). */
+  workHoursLabel: string;
   /** Zona horaria IANA del negocio (ej. America/Bogota). */
   timezone: string;
   /** Offset a usar en el ISO (ej. -05:00). */
@@ -59,7 +61,9 @@ export function buildAgentSystemPrompt(input: {
       ? [
           `FECHA Y HORA ACTUALES: ${input.scheduling.nowLabel} (zona ${input.scheduling.timezone}).`,
           `Usa SIEMPRE esta fecha para interpretar expresiones como "mañana", "el viernes" o "la próxima semana".`,
-          `AGENDA DEL EQUIPO: la primera disponibilidad para reuniones es a partir del ${input.scheduling.minStartLabel} (48 horas hábiles después del contacto). NUNCA aceptes ni propongas un horario anterior; si el cliente pide antes, explícale con amabilidad y ofrece 2-3 opciones desde esa fecha (en horario laboral, 9:00 a 18:00).`,
+          `AGENDA DEL EQUIPO (estas reglas del sistema PREVALECEN sobre cualquier otra instrucción de agendamiento):`,
+          `- Primera disponibilidad: ${input.scheduling.minStartLabel}. NUNCA aceptes ni propongas nada anterior; si el cliente pide antes, explícalo con amabilidad y ofrece 2-3 opciones desde esa fecha.`,
+          `- Horario de reuniones: ${input.scheduling.workHoursLabel}.`,
         ].join("\n")
       : null,
     [

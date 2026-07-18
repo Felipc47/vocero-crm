@@ -1,46 +1,77 @@
 import { describe, expect, it } from "vitest";
-import { addBusinessDays, minSchedulableStart } from "@/lib/business-days";
+import {
+  addBusinessDays,
+  isValidMeetingStart,
+  minSchedulableStart,
+} from "@/lib/business-days";
 
 const TZ = "America/Bogota"; // UTC-5, sin DST
+const WORK = { leadDays: 2, workStartMin: 9 * 60 }; // jornada desde 9:00
+const SLOTS = { workStartMin: 9 * 60, workEndMin: 17 * 60 + 30, slotMinutes: 30 };
 
-describe("días hábiles (004): disponibilidad 48h hábiles en la zona del negocio", () => {
-  it("lunes + 2 hábiles → miércoles, misma hora", () => {
-    const mon = new Date("2026-07-20T15:00:00-05:00"); // lunes 10am Bogotá
-    const r = addBusinessDays(mon, 2, TZ);
+describe("mínimo agendable (004): día + N hábiles al inicio de jornada", () => {
+  it("contacto viernes por la NOCHE (ya sábado en UTC) → martes 9:00 a.m.", () => {
+    // Este caso produjo el bucle real: el mínimo era 'martes 9:24 p.m.' y
+    // rechazaba el 'martes 9:30 a.m.' que el modelo proponía.
+    const friNight = new Date("2026-07-17T21:24:00-05:00");
+    const r = minSchedulableStart(friNight, TZ, WORK);
     expect(r.toISOString()).toBe(
-      new Date("2026-07-22T15:00:00-05:00").toISOString() // miércoles
+      new Date("2026-07-21T09:00:00-05:00").toISOString() // martes 9am
     );
   });
 
-  it("jueves + 2 hábiles salta el fin de semana → lunes", () => {
+  it("contacto lunes 10 a.m. → miércoles 9:00 a.m.", () => {
+    const mon = new Date("2026-07-20T10:00:00-05:00");
+    const r = minSchedulableStart(mon, TZ, WORK);
+    expect(r.toISOString()).toBe(
+      new Date("2026-07-22T09:00:00-05:00").toISOString()
+    );
+  });
+
+  it("contacto sábado → miércoles 9:00 a.m. (dom no cuenta, lun+mar hábiles)", () => {
+    const sat = new Date("2026-07-18T09:00:00-05:00");
+    const r = minSchedulableStart(sat, TZ, WORK);
+    expect(r.toISOString()).toBe(
+      new Date("2026-07-21T09:00:00-05:00").toISOString() // martes 9am
+    );
+  });
+
+  it("addBusinessDays salta fines de semana", () => {
     const thu = new Date("2026-07-16T10:00:00-05:00"); // jueves
     const r = addBusinessDays(thu, 2, TZ);
-    expect(r.toISOString()).toBe(
-      new Date("2026-07-20T10:00:00-05:00").toISOString() // lunes
-    );
+    // A nivel día: viernes (1), lunes (2)
+    expect(
+      new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(r)
+    ).toBe("Mon");
+  });
+});
+
+describe("inicio válido: día hábil + horario 9:00-17:30 + franjas de 30", () => {
+  it("martes 9:30 a.m. → válido (el caso que el bucle rechazaba)", () => {
+    const d = new Date("2026-07-21T09:30:00-05:00");
+    expect(isValidMeetingStart(d, TZ, SLOTS)).toBe(true);
   });
 
-  it("viernes por la NOCHE en Bogotá (ya sábado en UTC) + 2 hábiles → martes", () => {
-    // 2026-07-17 20:57 Bogotá = 2026-07-18 01:57 UTC (sábado en UTC)
-    const friNight = new Date("2026-07-17T20:57:00-05:00");
-    const r = addBusinessDays(friNight, 2, TZ);
-    expect(r.toISOString()).toBe(
-      new Date("2026-07-21T20:57:00-05:00").toISOString() // martes, no lunes
-    );
+  it("martes 9:24 p.m. → inválido (fuera de horario)", () => {
+    const d = new Date("2026-07-21T21:24:00-05:00");
+    expect(isValidMeetingStart(d, TZ, SLOTS)).toBe(false);
   });
 
-  it("sábado (local) + 2 hábiles → martes", () => {
-    const sat = new Date("2026-07-18T09:00:00-05:00"); // sábado 9am Bogotá
-    const r = addBusinessDays(sat, 2, TZ);
-    expect(r.toISOString()).toBe(
-      new Date("2026-07-21T09:00:00-05:00").toISOString() // martes
-    );
+  it("17:00 es la última franja válida; 17:30 ya no inicia", () => {
+    expect(
+      isValidMeetingStart(new Date("2026-07-21T17:00:00-05:00"), TZ, SLOTS)
+    ).toBe(true);
+    expect(
+      isValidMeetingStart(new Date("2026-07-21T17:30:00-05:00"), TZ, SLOTS)
+    ).toBe(false);
   });
 
-  it("minSchedulableStart = now + 2 hábiles", () => {
-    const now = new Date("2026-07-20T12:00:00-05:00"); // lunes
-    expect(minSchedulableStart(now, TZ).toISOString()).toBe(
-      new Date("2026-07-22T12:00:00-05:00").toISOString()
-    );
+  it("9:15 no es franja de 30 → inválido; sábado → inválido", () => {
+    expect(
+      isValidMeetingStart(new Date("2026-07-21T09:15:00-05:00"), TZ, SLOTS)
+    ).toBe(false);
+    expect(
+      isValidMeetingStart(new Date("2026-07-18T10:00:00-05:00"), TZ, SLOTS)
+    ).toBe(false);
   });
 });

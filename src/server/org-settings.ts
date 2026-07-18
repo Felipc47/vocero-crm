@@ -23,6 +23,14 @@ const calendarSettingsSchema = z.object({
   defaultDurationMin: z.number().int().min(15).max(240).default(45),
   /** Zona horaria IANA del negocio (para interpretar y proponer fechas). */
   timezone: z.string().trim().min(1).default("America/Bogota"),
+  /** Inicio de jornada en minutos locales (540 = 9:00 a.m.). */
+  workStartMin: z.number().int().min(0).max(1439).default(9 * 60),
+  /** Fin de jornada en minutos locales (1050 = 5:30 p.m.). */
+  workEndMin: z.number().int().min(0).max(1439).default(17 * 60 + 30),
+  /** Tamaño de franja en minutos (las reuniones inician cada N min). */
+  slotMinutes: z.number().int().min(15).max(120).default(30),
+  /** Antelación mínima en días hábiles para la primera disponibilidad. */
+  leadTimeBusinessDays: z.number().int().min(0).max(10).default(2),
 });
 export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
 

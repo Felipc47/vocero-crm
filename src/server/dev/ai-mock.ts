@@ -59,13 +59,23 @@ export function aiMockCompletion(messages: InMessage[]): string {
     emailMatch &&
     (text.includes("agend") || text.includes("reuni"))
   ) {
-    // "hoy mismo" simula al modelo pidiendo ANTES de las 48h hábiles: el
-    // servidor debe rechazarlo y proponer la primera disponibilidad.
+    // "hoy mismo" simula al modelo pidiendo ANTES de la antelación mínima;
+    // "medianoche" simula una hora fuera del horario laboral. El servidor
+    // debe rechazar ambos con el mensaje correspondiente.
     const tooSoon = text.includes("hoy mismo");
+    const offHours = text.includes("medianoche");
     const start = new Date(
       Date.now() + (tooSoon ? 2 * 3600_000 : 5 * 24 * 3600_000)
     );
-    start.setMinutes(0, 0, 0);
+    if (offHours) {
+      start.setUTCHours(3, 0, 0, 0); // 22:00 Bogotá — fuera de jornada
+    } else {
+      start.setUTCHours(15, 0, 0, 0); // 10:00 Bogotá — franja válida
+    }
+    // Evitar fin de semana (validación de día hábil del servidor).
+    while (!tooSoon && [0, 6].includes(start.getUTCDay())) {
+      start.setTime(start.getTime() + 24 * 3600_000);
+    }
     return JSON.stringify({
       action: "schedule_meeting",
       email: emailMatch[0],
