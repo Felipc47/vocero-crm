@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Pencil, RotateCcw, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { CalendarPlus, Check, Pencil, RotateCcw, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import type { ConversationDto, StageDto } from "@/lib/types";
 import { cn, formatPhone } from "@/lib/utils";
 import { stageColor, stageTint } from "@/lib/stage-colors";
 import { ContactAvatar } from "@/components/avatar";
+import { ScheduleDialog } from "@/components/schedule-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StageTag } from "@/components/ui/stage-tag";
@@ -45,6 +46,9 @@ export function ContactPanel({
   const toast = useToast();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [draftName, setDraftName] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
   const [notes, setNotes] = useState("");
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
@@ -74,6 +78,7 @@ export function ContactPanel({
     ]).catch(() => [null, null, null]);
     if (detail) {
       setNotes(detail.contact?.notes ?? "");
+      setContactEmail(detail.contact?.email ?? null);
       setCurrentStageId(detail.stage?.id ?? null);
       setLeadId(detail.lead?.id ?? null);
     }
@@ -91,6 +96,7 @@ export function ContactPanel({
       fetch("/api/agent/profile").then((r) => (r.ok ? r.json() : null)),
     ]).catch(() => [null, null]);
     if (detail) {
+      setContactEmail(detail.contact?.email ?? null);
       setCurrentStageId(detail.stage?.id ?? null);
       setLeadId(detail.lead?.id ?? null);
     }
@@ -136,13 +142,19 @@ export function ContactPanel({
 
   async function saveEdit() {
     if (!draftName.trim()) return;
+    const email = draftEmail.trim();
     setSaving(true);
     await fetch(`/api/contacts/${contactId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: draftName.trim(), notes }),
+      body: JSON.stringify({
+        name: draftName.trim(),
+        email: email || null,
+        notes,
+      }),
     }).catch(() => null);
     setSaving(false);
+    setContactEmail(email || null);
     setMode("view");
     toast("Cambios guardados");
     void refreshLive();
@@ -195,6 +207,22 @@ export function ContactPanel({
             </div>
             <div>
               <label
+                htmlFor="panel-edit-email"
+                className="mb-1.5 block text-[12.5px] font-bold"
+              >
+                Correo
+              </label>
+              <input
+                id="panel-edit-email"
+                type="email"
+                value={draftEmail}
+                onChange={(e) => setDraftEmail(e.target.value)}
+                placeholder="cliente@correo.com"
+                className="w-full rounded-[10px] border bg-surface-2 px-[13px] py-[11px] text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft"
+              />
+            </div>
+            <div>
+              <label
                 htmlFor="panel-edit-notes"
                 className="mb-1.5 block text-[12.5px] font-bold"
               >
@@ -228,7 +256,27 @@ export function ContactPanel({
                   {formatPhone(conversation.contact.phone)}
                 </span>
               </div>
+              <div className="flex items-center justify-between gap-4 border-b py-3">
+                <span className="shrink-0 text-[13px] font-semibold text-mute">
+                  Correo
+                </span>
+                <span className="min-w-0 truncate text-right text-sm font-bold">
+                  {contactEmail ?? (
+                    <span className="font-semibold text-faint">
+                      Sin correo aún
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
+
+            <button
+              onClick={() => setScheduling(true)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border py-3 text-sm font-bold transition-colors hover:border-brand hover:text-brand"
+            >
+              <CalendarPlus className="h-4 w-4" strokeWidth={2.2} />
+              Agendar reunión
+            </button>
 
             {conversation.handoffAt && (
               <div className="mt-4 rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3">
@@ -404,6 +452,7 @@ export function ContactPanel({
             <button
               onClick={() => {
                 setDraftName(conversation.contact.name);
+                setDraftEmail(contactEmail ?? "");
                 setMode("edit");
               }}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-accent transition-colors hover:bg-brand-hover"
@@ -457,6 +506,16 @@ export function ContactPanel({
           }}
         />
       )}
+      {scheduling && (
+        <ScheduleDialog
+          contactId={conversation.contact.id}
+          contactName={conversation.contact.name}
+          defaultEmail={contactEmail}
+          onClose={() => setScheduling(false)}
+          onScheduled={() => void refetch()}
+        />
+      )}
+
       {confirming === "reset" && (
         <ConfirmDialog
           title="Reiniciar conversación"

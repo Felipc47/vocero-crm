@@ -26,6 +26,8 @@ export function buildAgentSystemPrompt(input: {
   profile: AgentProfile;
   kb: KbEntry[];
   stages: { name: string }[];
+  /** 004: true si Google Calendar está conectado — habilita schedule_meeting. */
+  calendarAvailable?: boolean;
 }): string {
   const { profile } = input;
   const stageNames = input.stages.map((s) => s.name).join(" | ");
@@ -46,10 +48,20 @@ export function buildAgentSystemPrompt(input: {
       '- {"action":"update_lead","note":"...","reply":"..."} — guardar una nota del lead (reply opcional).',
       '- {"action":"move_stage","stage":"<nombre exacto de etapa>","reply":"..."} — mover el lead (reply opcional).',
       '- {"action":"handoff","reason":"...","farewell":"..."} — escalar a un humano (farewell opcional para despedirte).',
+      ...(input.calendarAvailable
+        ? [
+            '- {"action":"schedule_meeting","email":"...","datetime":"<ISO 8601 con zona, ej. 2026-07-20T15:00:00-05:00>","reply":"..."} — agendar la reunión/sesión de diagnóstico en el calendario (reply opcional para confirmar).',
+          ]
+        : []),
       "Reglas duras:",
       "- Si el cliente pide hablar con una persona/humano/asesor → handoff.",
       "- Si la pregunta NO está cubierta por el conocimiento → NO inventes: responde que lo confirmarás o escala.",
       "- Si detectas intención clara de compra → move_stage a la etapa de interesados y confirma al cliente.",
+      ...(input.calendarAvailable
+        ? [
+            "- Para agendar una reunión: primero pide el CORREO del cliente y acuerda FECHA Y HORA concretas; solo usa schedule_meeting cuando tengas ambos confirmados. El sistema envía la invitación con Google Meet al correo.",
+          ]
+        : []),
       "- JSON puro, sin markdown ni texto adicional.",
     ].join("\n"),
   ]

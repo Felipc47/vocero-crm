@@ -60,6 +60,31 @@ export async function GET(req: Request, ctx: Params) {
     });
   }
 
+  // GET {leadgenId}?fields=field_data,... → detalle del lead (leadgen-mock, 004)
+  if (path.length === 1 && path[0]?.startsWith("lgmock_")) {
+    const { getLeadgenMockState } = await import(
+      "@/server/dev/leadgen-mock-state"
+    );
+    const lead = getLeadgenMockState().leads.get(path[0]);
+    if (!lead) {
+      return Response.json(
+        { error: { message: "Lead not found", type: "GraphMethodException", code: 100 } },
+        { status: 404 }
+      );
+    }
+    return Response.json({
+      id: lead.leadgenId,
+      form_id: lead.formId,
+      campaign_name: lead.campaignName,
+      ad_name: lead.adName,
+      field_data: [
+        { name: "full_name", values: [lead.name] },
+        { name: "phone_number", values: [lead.phone] },
+        { name: "email", values: [lead.email] },
+      ],
+    });
+  }
+
   // GET {phoneNumberId}?fields=... → validación del wizard
   if (path.length === 1) {
     return Response.json({

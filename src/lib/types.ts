@@ -47,6 +47,7 @@ export type ContactDto = {
   id: string;
   name: string;
   phone: string;
+  email: string | null;
   notes: string | null;
   archivedAt: string | null;
   /** Etapa del lead del contacto (solo lectura; listado de Contactos). */

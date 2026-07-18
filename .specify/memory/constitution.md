@@ -1,31 +1,25 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Versión: 1.1.0 (plantilla starter) → 1.2.0
+Versión: 1.2.0 → 1.3.0
 
 Cambios:
-  - Título y descripción del producto: Vocero CRM (CRM de WhatsApp con agente de
-    IA, open source MIT, self-hosted, gratuito; una instancia = un negocio).
-  - Principio II "Soberanía / Self-Hosted" → ENDURECIDO: se elimina la excepción
-    de almacenamiento de objetos S3-compatible; lista cerrada de dependencias
-    externas en runtime (WhatsApp Cloud API + proveedor LLM opcional vía
-    adaptador OpenRouter-compatible); prohibición explícita v1 de S3/R2, email,
-    Stripe y Google; requisitos mínimos del instalador fijados.
-  - Principio VIII "Foco Vertical" → definido: CRM de conversaciones y leads de
-    WhatsApp que las agencias despliegan para negocios.
-  - Principios I, III, IV, V, VI, VII y IX: íntegros (sin cambio semántico).
-  - Governance: Ratified / Last Amended = 2026-07-09.
+  - Principio II "Soberanía / Self-Hosted" → ENMIENDA aprobada por el dueño
+    (2026-07-17, feature 004): se agrega Google Calendar API como TERCERA
+    dependencia externa opcional de runtime, exclusivamente para agendamiento
+    de reuniones con prospectos, tras adaptador dedicado y con OAuth por
+    usuario (tokens cifrados en reposo). La prohibición de "servicios de
+    Google" pasa a "otros servicios de Google distintos de Calendar".
+  - Resto de principios: íntegros (sin cambio semántico).
 
-Bump: MINOR (1.1.0 → 1.2.0) — expansión material del Principio II y definición
-del Principio VIII; sin eliminaciones ni redefiniciones incompatibles.
+Bump: MINOR (1.2.0 → 1.3.0) — expansión material del Principio II (nueva
+dependencia permitida); sin eliminaciones ni redefiniciones incompatibles.
 
 Plantillas dependientes:
-  - .specify/templates/plan-template.md — ✅ compatible (Constitution Check
-    genérico; los gates se evalúan contra esta versión).
-  - .specify/templates/spec-template.md — ✅ compatible (sin secciones nuevas).
+  - .specify/templates/plan-template.md — ✅ compatible.
+  - .specify/templates/spec-template.md — ✅ compatible.
   - .specify/templates/tasks-template.md — ✅ compatible.
-  - CLAUDE.md — ⚠ se personaliza para el usuario final del repo en la fase de
-    implementación (tarea planificada de la feature 001).
+  - CLAUDE.md — ⚠ actualizar la regla "Soberanía (II)" al implementar la 004.
 
 TODOs diferidos: ninguno.
 -->
@@ -68,9 +62,15 @@ dependencias externas en runtime es CERRADA:
   2. **El proveedor LLM**, opcional, accedido EXCLUSIVAMENTE a través del adaptador
      OpenRouter-compatible (`OPENROUTER_BASE_URL` / `OPENROUTER_MODEL`). Sin token
      configurado, el producto funciona como CRM sin agente de IA.
+  3. **Google Calendar API**, opcional (enmienda 1.3.0, aprobada por el dueño
+     2026-07-17), EXCLUSIVAMENTE para agendar reuniones con prospectos: accedida
+     tras un adaptador dedicado (`src/lib/google/`), con OAuth por usuario cuyo
+     refresh token se cifra en reposo (Principio I). Sin conexión configurada, el
+     producto funciona completo sin agendamiento; su fallo degrada sin colgar
+     ninguna otra función.
 - **PROHIBIDO en v1**: almacenamiento de objetos externo (S3/R2), servicios de
-  email, Stripe u otro billing, y servicios de Google. Cualquier feature que los
-  requiera queda fuera del alcance de v1.
+  email, Stripe u otro billing, y otros servicios de Google distintos de Calendar.
+  Cualquier feature que los requiera queda fuera del alcance de v1.
 - El instalador solo necesita: un VPS con Coolify o Docker, un dominio, credenciales
   de Meta y (opcional) un token de OpenRouter. Nada más.
 - Las funciones core —autenticación y base de datos— corren self-hosted (Better
@@ -260,4 +260,4 @@ práctica, convención o preferencia; ante un conflicto, gana la constitución.
 - **Propagación**: al enmendar la constitución se revisan y, si procede, se actualizan
   las plantillas dependientes (plan, spec, tasks).
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
+**Version**: 1.3.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-17

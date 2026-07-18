@@ -113,6 +113,8 @@ export const contact = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     phone: text("phone").notNull(),
     name: text("name").notNull(),
+    /** Correo del prospecto (004): lo trae el lead de Meta o lo captura el agente. */
+    email: text("email"),
     notes: text("notes"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -256,6 +258,55 @@ export const metaCredentials = pgTable(
     uniqueIndex("meta_credentials_org_uq").on(t.organizationId),
     // El webhook enruta por phone_number_id: debe ser único en la instancia.
     uniqueIndex("meta_credentials_phone_uq").on(t.phoneNumberId),
+  ]
+);
+
+/**
+ * Conexión de Google Calendar (004): refresh token OAuth cifrado en reposo
+ * (mismo patrón de tres columnas que meta_credentials). Una conexión por org.
+ */
+export const googleCredentials = pgTable(
+  "google_credentials",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** Correo de la cuenta Google conectada (solo para mostrar en Ajustes). */
+    accountEmail: text("account_email").notNull(),
+    refreshCipher: text("refresh_cipher").notNull(),
+    refreshIv: text("refresh_iv").notNull(),
+    refreshTag: text("refresh_tag").notNull(),
+    status: text("status", { enum: ["connected", "reconnect_required"] })
+      .notNull()
+      .default("connected"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("google_credentials_org_uq").on(t.organizationId)]
+);
+
+/**
+ * Eventos de Meta Lead Ads procesados (004): idempotencia por leadgen_id
+ * (Principio IV — análogo a wa_message_id UNIQUE en message).
+ */
+export const leadgenEvent = pgTable(
+  "leadgen_event",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    leadgenId: text("leadgen_id").notNull(),
+    formId: text("form_id"),
+    contactId: text("contact_id").references(() => contact.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("leadgen_event_id_uq").on(t.leadgenId),
+    index("leadgen_event_org_idx").on(t.organizationId),
   ]
 );
 

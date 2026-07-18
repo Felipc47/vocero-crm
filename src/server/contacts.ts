@@ -7,6 +7,7 @@ export function serializeContact(c: typeof schema.contact.$inferSelect) {
     id: c.id,
     name: c.name,
     phone: c.phone,
+    email: c.email,
     notes: c.notes,
     archivedAt: c.archivedAt?.toISOString() ?? null,
   };

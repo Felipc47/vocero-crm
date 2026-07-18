@@ -51,6 +51,23 @@ export function aiMockCompletion(messages: InMessage[]): string {
     return JSON.stringify({ action: "handoff", reason: "cliente" });
   }
 
+  // 004: agendar reunión — solo si el system prompt ofrece la acción (es
+  // decir, con Google Calendar conectado) y el cliente dio correo + intención.
+  const emailMatch = lastUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+  if (
+    system.includes("schedule_meeting") &&
+    emailMatch &&
+    (text.includes("agend") || text.includes("reuni"))
+  ) {
+    const start = new Date(Date.now() + 24 * 3600_000);
+    start.setMinutes(0, 0, 0);
+    return JSON.stringify({
+      action: "schedule_meeting",
+      email: emailMatch[0],
+      datetime: start.toISOString(),
+    });
+  }
+
   // Intención de compra → mover a Interesado.
   if (
     text.includes("lo compro") ||

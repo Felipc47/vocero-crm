@@ -67,6 +67,11 @@ export type WebhookValue = {
   message_template_language?: string;
   message_template_id?: number | string;
   reason?: string | null;
+  // leadgen (Meta Lead Ads, 004): object=page, field=leadgen
+  leadgen_id?: string;
+  form_id?: string;
+  page_id?: string;
+  created_time?: number | string;
 };
 
 export type WebhookChange = { field?: string; value?: WebhookValue };

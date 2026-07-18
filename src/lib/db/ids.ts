@@ -11,6 +11,8 @@ const prefixes = {
   lead: "ld",
   stage: "stg",
   credentials: "cred",
+  googleCredentials: "gcred",
+  leadgenEvent: "lg",
   agentProfile: "agp",
   kbEntry: "kb",
   template: "tpl",

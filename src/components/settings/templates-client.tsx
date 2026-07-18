@@ -24,17 +24,44 @@ export function TemplatesClient() {
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  // 004: plantilla que se envía automáticamente a los leads de Meta Ads.
+  const [greetingTemplateId, setGreetingTemplateId] = useState<string | "">("");
+  const [savingGreeting, setSavingGreeting] = useState(false);
+  const [greetingMsg, setGreetingMsg] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
-    const res = await fetch("/api/templates").catch(() => null);
-    if (!res?.ok) return;
-    const data = (await res.json()) as { templates: TemplateDto[] };
-    setTemplates(data.templates);
+    const [res, lg] = await Promise.all([
+      fetch("/api/templates").catch(() => null),
+      fetch("/api/settings/leadgen").catch(() => null),
+    ]);
+    if (res?.ok) {
+      const data = (await res.json()) as { templates: TemplateDto[] };
+      setTemplates(data.templates);
+    }
+    if (lg?.ok) {
+      const data = (await lg.json()) as {
+        settings: { greetingTemplateId: string | null };
+      };
+      setGreetingTemplateId(data.settings.greetingTemplateId ?? "");
+    }
   }, []);
 
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  async function saveGreeting(value: string) {
+    setGreetingTemplateId(value);
+    setSavingGreeting(true);
+    setGreetingMsg(null);
+    const res = await fetch("/api/settings/leadgen", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ greetingTemplateId: value || null }),
+    }).catch(() => null);
+    setSavingGreeting(false);
+    setGreetingMsg(res?.ok ? "Guardado ✓" : "No se pudo guardar");
+  }
 
   async function sync() {
     setSyncing(true);
@@ -59,8 +86,47 @@ export function TemplatesClient() {
     }
   }
 
+  const approved = templates.filter((t) => t.status === "approved");
+
   return (
     <div className="max-w-3xl space-y-6">
+      {/* 004: saludo automático para leads de Meta Ads */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Saludo automático para leads de Meta</CardTitle>
+          <CardDescription>
+            Cuando llega un lead nuevo desde tus campañas de Meta, se le envía
+            esta plantilla por WhatsApp (con {"{{1}}"} = su primer nombre) y el
+            agente IA continúa la conversación cuando responda.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <select
+              value={greetingTemplateId}
+              onChange={(e) => void saveGreeting(e.target.value)}
+              disabled={savingGreeting}
+              className="flex h-11 w-full max-w-sm rounded-xl border border-border bg-surface-2 px-3.5 text-sm font-medium focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft"
+            >
+              <option value="">No enviar saludo automático</option>
+              {approved.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.language})
+                </option>
+              ))}
+            </select>
+            {greetingMsg && (
+              <span className="text-xs font-bold text-mute">{greetingMsg}</span>
+            )}
+          </div>
+          {approved.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Necesitas al menos una plantilla aprobada por Meta.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex items-start justify-between gap-4">
         <p className="text-sm text-muted-foreground">
           Las plantillas permiten reabrir conversaciones con la ventana de 24 h

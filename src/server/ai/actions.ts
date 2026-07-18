@@ -23,6 +23,15 @@ export const AgentAction = z.discriminatedUnion("action", [
     reason: z.string().optional(),
     farewell: z.string().optional(),
   }),
+  // 004: agendar la sesión de diagnóstico en Google Calendar. Solo se ofrece
+  // al modelo cuando la conexión de Calendar está activa (ver prompts.ts).
+  z.object({
+    action: z.literal("schedule_meeting"),
+    email: z.string().email(),
+    datetime: z.string().min(1),
+    title: z.string().optional(),
+    reply: z.string().optional(),
+  }),
 ]);
 
 export type AgentActionType = z.infer<typeof AgentAction>;

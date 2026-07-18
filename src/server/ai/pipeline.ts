@@ -9,6 +9,9 @@ import { SendError, sendText } from "@/server/inbox/send";
 import { AgentAction, degradeAction, resolveStage, type AgentActionType } from "@/server/ai/actions";
 import { matchesHandoffIntent } from "@/server/ai/handoff";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
+import { isGoogleConfigured } from "@/lib/env";
+import { getGoogleConnection } from "@/server/google/credentials";
+import { ScheduleError, scheduleMeeting } from "@/server/google/scheduling";
 
 /**
  * Turno del agente (FR-021..FR-025).
@@ -142,10 +145,18 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .where(eq(schema.pipelineStage.organizationId, organizationId))
     .orderBy(asc(schema.pipelineStage.position));
 
+  // 004: la acción schedule_meeting solo se ofrece con Calendar conectado y
+  // NUNCA en el sandbox del Laboratorio (una evaluación no crea eventos).
+  let calendarAvailable = false;
+  if (!conversation.isTest && isGoogleConfigured()) {
+    const googleConn = await getGoogleConnection(organizationId);
+    calendarAvailable = googleConn?.status === "connected";
+  }
+
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: buildAgentSystemPrompt({ profile, kb, stages }),
+      content: buildAgentSystemPrompt({ profile, kb, stages, calendarAvailable }),
     },
     ...history
       .filter((m) => m.text)
@@ -201,6 +212,63 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       await applyHandoff(conversationId, organizationId, "modelo");
       return;
     }
+    case "schedule_meeting": {
+      await executeScheduleMeeting(conversation, action, calendarAvailable);
+      return;
+    }
+  }
+}
+
+/**
+ * 004: ejecuta la acción de agendar. El turno JAMÁS se cae: cualquier fallo
+ * degrada a una respuesta honesta + handoff para que un humano confirme.
+ */
+async function executeScheduleMeeting(
+  conversation: Conversation,
+  action: Extract<AgentActionType, { action: "schedule_meeting" }>,
+  calendarAvailable: boolean
+): Promise<void> {
+  const start = new Date(action.datetime);
+  if (!calendarAvailable || Number.isNaN(start.getTime())) {
+    // Sin conexión (no debería ofrecerse) o fecha imposible de parsear:
+    // pedir la fecha de nuevo en lugar de fallar.
+    await deliverReply(
+      conversation,
+      action.reply ??
+        "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: mañana a las 3:00 p.m."
+    );
+    return;
+  }
+
+  try {
+    const event = await scheduleMeeting({
+      organizationId: conversation.organizationId,
+      contactId: conversation.contactId,
+      prospectEmail: action.email,
+      startIso: start.toISOString(),
+      title: action.title,
+    });
+    const when = start.toLocaleString("es-MX", {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+    const meetPart = event.meetLink
+      ? ` Aquí tienes el enlace de Google Meet: ${event.meetLink}`
+      : "";
+    await deliverReply(
+      conversation,
+      action.reply ??
+        `¡Listo! Agendé la reunión para el ${when}. Te llegará la invitación al correo ${action.email}.${meetPart}`
+    );
+  } catch (err) {
+    const detail =
+      err instanceof ScheduleError ? err.code : "error inesperado";
+    console.error(`[agente] schedule_meeting falló (${detail}):`, err);
+    await deliverReply(
+      conversation,
+      "Tuve un inconveniente para agendar en este momento. Un compañero del equipo te confirmará la reunión por aquí muy pronto."
+    );
+    await applyHandoff(conversation.id, conversation.organizationId, "modelo");
   }
 }
 

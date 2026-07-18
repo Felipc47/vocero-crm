@@ -7,6 +7,7 @@ import {
 } from "@/server/inbox/webhook";
 import { processMessagesValue } from "@/server/inbox/ingest";
 import { processTemplateStatusValue } from "@/server/whatsapp/template-events";
+import { processLeadgenValue } from "@/server/leadgen/ingest";
 
 /**
  * Webhook público de WhatsApp (contrato webhook.md).
@@ -76,6 +77,9 @@ async function processPayload(payload: WebhookPayload): Promise<void> {
         await processMessagesValue(change.value);
       } else if (change.field === "message_template_status_update") {
         await processTemplateStatusValue(entry.id ?? null, change.value);
+      } else if (change.field === "leadgen") {
+        // Meta Lead Ads (004): mismo endpoint, object=page.
+        await processLeadgenValue(change.value);
       }
       // otros fields: ignorar sin error
     }

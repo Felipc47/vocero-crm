@@ -26,6 +26,13 @@ const envSchema = z.object({
   OPENROUTER_BASE_URL: z.string().url().default("https://openrouter.ai/api"),
   OPENROUTER_MODEL: z.string().optional(),
   OPENROUTER_JUDGE_MODEL: z.string().optional(),
+  // Google Calendar (004, constitución 1.3.0): opcional. Sin client id/secret
+  // el CRM funciona completo sin agendamiento. Las base URL son configurables
+  // para apuntar a los mocks en el self-test.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_BASE_URL: z.string().url().default("https://oauth2.googleapis.com"),
+  GOOGLE_API_BASE_URL: z.string().url().default("https://www.googleapis.com"),
   ALLOW_SIGNUP: z.string().optional(),
   AGENT_COALESCE_MS: z.coerce.number().int().min(0).default(6000),
   // Secreto del barrido de recuperación (/api/cron/sweep). Sin él, el
@@ -89,4 +96,16 @@ export function isMockEnabled(): boolean {
 export function isAiConfigured(): boolean {
   const token = process.env.OPENROUTER_API_TOKEN;
   return typeof token === "string" && token.trim().length > 0;
+}
+
+/** true si el OAuth de Google Calendar está configurado en la instancia. */
+export function isGoogleConfigured(): boolean {
+  const id = process.env.GOOGLE_CLIENT_ID;
+  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  return (
+    typeof id === "string" &&
+    id.trim().length > 0 &&
+    typeof secret === "string" &&
+    secret.trim().length > 0
+  );
 }
