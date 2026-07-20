@@ -27,7 +27,9 @@ export const AgentAction = z.discriminatedUnion("action", [
   // al modelo cuando la conexión de Calendar está activa (ver prompts.ts).
   z.object({
     action: z.literal("schedule_meeting"),
-    email: z.string().email(),
+    /** Laxo a propósito: el modelo a veces manda "..." u otro placeholder;
+     * el pipeline valida el formato y pide el correo en vez de tumbar el turno. */
+    email: z.string(),
     datetime: z.string().min(1),
     /** Cita textual del mensaje del cliente que confirma/propone la hora.
      * El pipeline verifica que exista en el historial entrante: sin

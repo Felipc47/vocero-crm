@@ -458,6 +458,16 @@ async function executeScheduleMeeting(
   calSettings: CalendarSettings | undefined,
   inboundTexts: string[]
 ): Promise<void> {
+  // Correo con formato real: el modelo a veces copia el placeholder "..."
+  // del ejemplo cuando aún no lo tiene — se pide en vez de tumbar el turno.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email.trim())) {
+    await deliverReply(
+      conversation,
+      "Para enviarte la invitación necesito tu correo electrónico. ¿Me lo compartes?"
+    );
+    return;
+  }
+
   const start = new Date(action.datetime);
   if (!calendarAvailable || !calSettings || Number.isNaN(start.getTime())) {
     // Sin conexión (no debería ofrecerse) o fecha imposible de parsear:
@@ -537,10 +547,8 @@ async function executeScheduleMeeting(
       startIso: start.toISOString(),
       title: action.title,
     });
-    const when = start.toLocaleString("es-MX", {
-      dateStyle: "long",
-      timeStyle: "short",
-    });
+    // Siempre en la zona del negocio (el contenedor corre en UTC).
+    const when = formatInTz(start, calSettings.timezone);
     const meetPart = event.meetLink
       ? ` Aquí tienes el enlace de Google Meet: ${event.meetLink}`
       : "";

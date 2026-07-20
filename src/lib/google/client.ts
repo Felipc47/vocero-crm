@@ -26,6 +26,12 @@ export class GoogleApiError extends Error {
       this.code === "unauthorized_client"
     );
   }
+
+  /** true si el token vive pero le faltan permisos (p. ej. la casilla de
+   * disponibilidad sin marcar en la pantalla de consentimiento). */
+  get isScopeError(): boolean {
+    return this.status === 403 && /insufficient/i.test(this.message);
+  }
 }
 
 type TokenResponse = {

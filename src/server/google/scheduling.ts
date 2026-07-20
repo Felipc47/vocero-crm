@@ -97,8 +97,9 @@ export async function scheduleMeeting(input: {
     const accessToken = await refreshAccessToken(connection.refreshToken);
 
     // Anti-sobreposición: si el calendario ya tiene algo en [start, end), no
-    // se crea el evento. Best-effort: un fallo del freeBusy no bloquea el
-    // agendamiento (queda el comportamiento previo), un choque real sí.
+    // se crea el evento. Un fallo transitorio del freeBusy no bloquea el
+    // agendamiento; la FALTA DE PERMISO sí (agendar a ciegas produce
+    // sobreposiciones — se exige reconectar con la casilla marcada).
     try {
       const busy = await queryFreeBusy({
         accessToken,
@@ -113,6 +114,13 @@ export async function scheduleMeeting(input: {
       }
     } catch (err) {
       if (err instanceof ScheduleError) throw err;
+      if (err instanceof GoogleApiError && err.isScopeError) {
+        await markGoogleReconnectRequired(input.organizationId);
+        throw new ScheduleError(
+          "reconnect_required",
+          "La conexión de Google no tiene el permiso de disponibilidad: reconecta en Ajustes → Calendario marcando TODAS las casillas"
+        );
+      }
       console.warn("[agenda] freeBusy falló; se agenda sin verificar:", err);
     }
 
@@ -140,7 +148,9 @@ export async function scheduleMeeting(input: {
   }
 
   // Rastro en el contacto: correo capturado + nota de la reunión.
-  const when = start.toLocaleString("es-MX", {
+  // Siempre en la zona del negocio (el contenedor corre en UTC).
+  const when = start.toLocaleString("es-CO", {
+    timeZone: settings.timezone,
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -201,5 +211,18 @@ export async function getBusyIntervals(
   const connection = await getGoogleConnection(organizationId);
   if (!connection || connection.status !== "connected") return [];
   const accessToken = await refreshAccessToken(connection.refreshToken);
-  return queryFreeBusy({ accessToken, timeMinIso, timeMaxIso });
+  try {
+    return await queryFreeBusy({ accessToken, timeMinIso, timeMaxIso });
+  } catch (err) {
+    // Sin permiso de disponibilidad el agente opera a ciegas: se marca la
+    // conexión para reconectar (Ajustes → Calendario lo muestra) y se apaga
+    // el agendamiento hasta que el permiso esté otorgado.
+    if (err instanceof GoogleApiError && err.isScopeError) {
+      await markGoogleReconnectRequired(organizationId);
+      console.error(
+        "[agenda] la conexión de Google NO tiene el permiso de disponibilidad (freeBusy). Reconecta en Ajustes → Calendario y MARCA la casilla de disponibilidad en la pantalla de Google."
+      );
+    }
+    throw err;
+  }
 }
