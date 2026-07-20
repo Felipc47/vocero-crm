@@ -9,6 +9,7 @@ import {
   Eye,
   FileDown,
   MessageCircle,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -36,6 +37,7 @@ export function ContactsClient() {
   const [editing, setEditing] = useState<ContactDto | null>(null);
   const [deleting, setDeleting] = useState<ContactDto | null>(null);
   const [detail, setDetail] = useState<ContactDto | null>(null);
+  const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -125,7 +127,14 @@ export function ContactsClient() {
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 border-b bg-surface px-4 py-3 md:px-[30px] md:py-[18px]">
         <h2 className="font-display text-[22px] font-bold">Contactos</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-1.5 rounded-[10px] bg-brand px-3 py-[8px] text-[12.5px] font-bold text-white transition-colors hover:bg-brand-hover"
+          >
+            <Plus className="h-[15px] w-[15px]" strokeWidth={2.4} />
+            Nuevo
+          </button>
           <input
             ref={fileRef}
             type="file"
@@ -286,6 +295,17 @@ export function ContactsClient() {
         />
       )}
 
+      {creating && (
+        <NewContactDialog
+          onClose={() => setCreating(false)}
+          onCreated={(name) => {
+            setCreating(false);
+            toast(`Contacto "${name}" creado`);
+            void refetch();
+          }}
+        />
+      )}
+
       {detail && (
         <SlideOver
           onClose={() => setDetail(null)}
@@ -324,6 +344,126 @@ export function ContactsClient() {
           onConfirm={() => void removeContact(deleting)}
         />
       )}
+    </div>
+  );
+}
+
+/** Alta manual de un prospecto (botón "Nuevo" del header). */
+function NewContactDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const cleanPhone = phone.replace(/\D/g, "");
+  const valid = name.trim().length > 0 && /^\d{7,15}$/.test(cleanPhone);
+
+  async function save() {
+    if (!valid || saving) return;
+    setSaving(true);
+    setError(null);
+    const res = await fetch("/api/contacts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        phone: cleanPhone,
+        email: email.trim() || undefined,
+        notes: notes.trim() || undefined,
+      }),
+    }).catch(() => null);
+    setSaving(false);
+    if (!res) {
+      setError("Sin conexión con el servidor");
+      return;
+    }
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo crear el contacto");
+      return;
+    }
+    onCreated(name.trim());
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex animate-[fade-in_.16s_ease] items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md animate-[pop-in_.2s_ease] rounded-2xl bg-surface p-6 shadow-[0_24px_60px_rgba(0,0,0,.35)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-4 font-display text-[19px] font-bold">
+          Nuevo prospecto
+        </h3>
+        <div className="space-y-3.5">
+          <div className="space-y-1.5">
+            <label className="text-[12.5px] font-bold" htmlFor="new-name">
+              Nombre
+            </label>
+            <Input
+              id="new-name"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[12.5px] font-bold" htmlFor="new-phone">
+              WhatsApp (con código de país)
+            </label>
+            <Input
+              id="new-phone"
+              inputMode="tel"
+              placeholder="5215512345678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[12.5px] font-bold" htmlFor="new-email">
+              Correo (opcional)
+            </label>
+            <Input
+              id="new-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[12.5px] font-bold" htmlFor="new-notes">
+              Notas (opcional)
+            </label>
+            <Textarea
+              id="new-notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <div className="mt-5 flex justify-end gap-2.5">
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={!valid || saving} onClick={() => void save()}>
+            {saving ? "Creando…" : "Crear prospecto"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

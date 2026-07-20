@@ -64,14 +64,30 @@ export function InboxClient() {
     [refetchMessages]
   );
 
-  // Enlace directo desde Contactos/Pipeline: /inbox?contact=<id>
+  // Enlace directo desde Contactos/Pipeline: /inbox?contact=<id>. Si el
+  // contacto aún no tiene conversación (importado por CSV o creado a mano),
+  // se crea vacía: con la ventana cerrada, el composer ofrece plantillas.
   const searchParams = useSearchParams();
   const contactParam = searchParams.get("contact");
+  const createTriedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!contactParam || selectedIdRef.current) return;
-    const match = conversations?.find((c) => c.contact.id === contactParam);
-    if (match) select(match.id);
-  }, [contactParam, conversations, select]);
+    if (!contactParam || selectedIdRef.current || !conversations) return;
+    const match = conversations.find((c) => c.contact.id === contactParam);
+    if (match) {
+      select(match.id);
+      return;
+    }
+    if (createTriedRef.current === contactParam) return;
+    createTriedRef.current = contactParam;
+    void (async () => {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contactId: contactParam }),
+      }).catch(() => null);
+      if (res?.ok) await refetchConversations();
+    })();
+  }, [contactParam, conversations, select, refetchConversations]);
 
   useEvents({
     onMessageNew: ({ conversationId, message }) => {

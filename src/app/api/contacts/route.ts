@@ -5,6 +5,7 @@ import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
 import { serializeContact } from "@/server/contacts";
+import { onLeadActivity } from "@/server/inbox/lead-activity";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ const createSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{7,15}$/, "Teléfono en dígitos, con código de país (ej. 5215512345678)"),
+  email: z.string().trim().email().max(254).optional(),
   notes: z.string().max(4000).optional(),
 });
 
@@ -73,6 +75,7 @@ export const POST = withAuth(async (session, req: Request) => {
       organizationId: session.organizationId,
       name: body.data.name,
       phone: body.data.phone,
+      email: body.data.email ?? null,
       notes: body.data.notes ?? null,
     })
     .onConflictDoNothing({
@@ -82,6 +85,8 @@ export const POST = withAuth(async (session, req: Request) => {
   if (!inserted[0]) {
     return apiError(409, "duplicate", "Ya existe un contacto con ese teléfono");
   }
+  // Igual que la importación: el prospecto entra al pipeline de una vez.
+  await onLeadActivity(session.organizationId, inserted[0].id, new Date());
   return Response.json(
     { contact: serializeContact(inserted[0]) },
     { status: 201 }
