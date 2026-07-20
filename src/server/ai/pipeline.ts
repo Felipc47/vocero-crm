@@ -19,7 +19,6 @@ import {
   freeRangesByDay,
   isValidMeetingStart,
   minSchedulableStart,
-  nextFreeSlots,
   utcOffsetOf,
   type DayAvailability,
 } from "@/lib/business-days";
@@ -58,8 +57,6 @@ function minutesLabel(minutes: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-/** Ventana en la que se busca disponibilidad para proponer horarios. */
-const AVAILABILITY_HORIZON_DAYS = 14;
 /** Días hábiles cuya disponibilidad ve el modelo (cubre ~2 semanas). */
 const AVAILABILITY_BUSINESS_DAYS = 10;
 
@@ -148,47 +145,29 @@ async function fetchAvailabilityByDay(
 }
 
 /**
- * Próximas franjas LIBRES según el calendario real (freeBusy). Best-effort:
- * si Google falla se devuelve lista vacía y el agente opera sin la lista —
- * la validación dura al crear el evento sigue protegiendo contra choques.
+ * Resumen inline de disponibilidad real para negociar por chat: hasta `max`
+ * días CON rangos libres ("miércoles, 22 de julio de 8:00 a. m. a 11:30 a. m.
+ * · viernes, 24 de julio de 2:00 p. m. a 5:30 p. m."). Null si no hay datos.
  */
-async function fetchFreeSlots(
+async function alternativesText(
   organizationId: string,
   settings: CalendarSettings,
-  count: number
-): Promise<Date[]> {
-  const from = minSchedulableStart(new Date(), settings.timezone, {
-    leadDays: settings.leadTimeBusinessDays,
-    workStartMin: settings.workStartMin,
-  });
-  const timeMax = new Date(
-    from.getTime() + AVAILABILITY_HORIZON_DAYS * 24 * 3600_000
-  );
-  let busy: { start: Date; end: Date }[];
-  try {
-    const intervals = await getBusyIntervals(
-      organizationId,
-      from.toISOString(),
-      timeMax.toISOString()
-    );
-    busy = intervals.map((b) => ({
-      start: new Date(b.start),
-      end: new Date(b.end),
-    }));
-  } catch (err) {
-    console.warn("[agente] no se pudo leer la disponibilidad:", err);
-    return [];
-  }
-  return nextFreeSlots({
-    from,
-    timezone: settings.timezone,
-    workStartMin: settings.workStartMin,
-    workEndMin: settings.workEndMin,
-    slotMinutes: settings.slotMinutes,
-    durationMin: settings.defaultDurationMin,
-    busy,
-    count,
-  });
+  max = 3
+): Promise<string | null> {
+  const days = await fetchAvailabilityByDay(organizationId, settings);
+  const withRanges = days.filter((d) => d.ranges.length > 0).slice(0, max);
+  if (withRanges.length === 0) return null;
+  const tz = settings.timezone;
+  return withRanges
+    .map(
+      (d) =>
+        `${formatDayInTz(d.day, tz)} de ${d.ranges
+          .map(
+            (r) => `${formatHourInTz(r.start, tz)} a ${formatHourInTz(r.end, tz)}`
+          )
+          .join(" y de ")}`
+    )
+    .join(" · ");
 }
 
 /** Contexto temporal del agente (004): hoy + primera disponibilidad. */
@@ -463,7 +442,8 @@ async function executeScheduleMeeting(
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email.trim())) {
     await deliverReply(
       conversation,
-      "Para enviarte la invitación necesito tu correo electrónico. ¿Me lo compartes?"
+      "Para enviarte la invitación necesito tu correo electrónico. ¿Me lo compartes?",
+      { allowRepeat: true }
     );
     return;
   }
@@ -475,7 +455,8 @@ async function executeScheduleMeeting(
     await deliverReply(
       conversation,
       action.reply ??
-        "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: el próximo martes a las 10:00 a.m."
+        "¿Me confirmas la fecha y hora exactas para la reunión? Por ejemplo: el próximo martes a las 10:00 a.m.",
+      { allowRepeat: true }
     );
     return;
   }
@@ -492,17 +473,16 @@ async function executeScheduleMeeting(
   // (clientOk) y aquí se verifica que la cita exista en el historial entrante.
   // Sin evidencia → no se agenda: se ofrecen horarios libres y se espera.
   if (!quoteAppearsInInbound(action.clientOk, inboundTexts)) {
-    const slots = calSettings
-      ? await fetchFreeSlots(conversation.organizationId, calSettings, 3)
-      : [];
-    const opciones = slots
-      .map((s) => formatInTz(s, calSettings!.timezone))
-      .join(" · ");
+    const opciones = await alternativesText(
+      conversation.organizationId,
+      calSettings
+    );
     await deliverReply(
       conversation,
       opciones
-        ? `Antes de agendar, confírmame qué horario te queda mejor. Tengo disponible: ${opciones}. ¿Cuál prefieres?`
-        : "Antes de agendar, confírmame qué día y hora te quedan mejor y con gusto la programo."
+        ? `Antes de agendar, confírmame qué horario te queda mejor. Disponibilidad real: ${opciones}. ¿Cuál prefieres?`
+        : "Antes de agendar, confírmame qué día y hora te quedan mejor y con gusto la programo.",
+      { allowRepeat: true }
     );
     return;
   }
@@ -518,7 +498,8 @@ async function executeScheduleMeeting(
     const minLabel = scheduling?.minStartLabel ?? "dentro de dos días hábiles";
     await deliverReply(
       conversation,
-      `Para darte una buena atención, la primera disponibilidad de nuestro equipo es a partir del ${minLabel}. ¿Te funciona ese día u otro posterior? Con gusto lo agendo.`
+      `Para darte una buena atención, la primera disponibilidad de nuestro equipo es a partir del ${minLabel}. ¿Te funciona ese día u otro posterior? Con gusto lo agendo.`,
+      { allowRepeat: true }
     );
     return;
   }
@@ -534,7 +515,8 @@ async function executeScheduleMeeting(
   ) {
     await deliverReply(
       conversation,
-      `Agendamos reuniones ${scheduling?.workHoursLabel ?? "de lunes a viernes en horario laboral"}. ¿Qué franja dentro de ese horario te queda bien?`
+      `Agendamos reuniones ${scheduling?.workHoursLabel ?? "de lunes a viernes en horario laboral"}. ¿Qué franja dentro de ese horario te queda bien?`,
+      { allowRepeat: true }
     );
     return;
   }
@@ -561,17 +543,19 @@ async function executeScheduleMeeting(
     // Choque de agenda: no es un error del sistema — se negocia otra hora
     // ofreciendo franjas realmente libres (sin handoff).
     if (err instanceof ScheduleError && err.code === "slot_taken") {
-      const slots = calSettings
-        ? await fetchFreeSlots(conversation.organizationId, calSettings, 3)
-        : [];
-      const opciones = slots
-        .map((s) => formatInTz(s, calSettings!.timezone))
-        .join(" · ");
+      // Incluye la hora pedida (cada intento produce un texto distinto) y un
+      // panorama por días — no tres franjas seguidas del mismo día.
+      const pedida = formatInTz(start, calSettings.timezone);
+      const opciones = await alternativesText(
+        conversation.organizationId,
+        calSettings
+      );
       await deliverReply(
         conversation,
         opciones
-          ? `Justo esa hora ya está ocupada en nuestra agenda. Tengo disponible: ${opciones}. ¿Cuál te funciona mejor?`
-          : "Justo esa hora ya está ocupada en nuestra agenda. ¿Me propones otro horario y lo intento de nuevo?"
+          ? `Lo siento, el ${pedida} ya está ocupado en nuestra agenda. Disponibilidad real: ${opciones}. ¿Cuál te funciona mejor?`
+          : `Lo siento, el ${pedida} ya está ocupado en nuestra agenda. ¿Me propones otro horario y lo intento de nuevo?`,
+        { allowRepeat: true }
       );
       return;
     }
@@ -588,32 +572,40 @@ async function executeScheduleMeeting(
 
 type Conversation = typeof schema.conversation.$inferSelect;
 
-/** Entrega la respuesta: envío real o persistencia sandbox (is_test). */
+/**
+ * Entrega la respuesta: envío real o persistencia sandbox (is_test).
+ * `allowRepeat` es para las respuestas de negociación que GENERA EL SERVIDOR
+ * (choque de agenda, pedir correo/hora): son legítimas aunque se repitan —
+ * suprimirlas deja al cliente en silencio ("congelado").
+ */
 async function deliverReply(
   conversation: Conversation,
-  text: string
+  text: string,
+  opts?: { allowRepeat?: boolean }
 ): Promise<void> {
   // Red de seguridad anti-repetición: idéntico al último saliente reciente
   // de la conversación → se suprime (el prompt ya lo prohíbe; esto lo garantiza).
   // La recencia se filtra con el reloj de la BD: es la misma fuente que puso
   // el created_at, así que no depende de la zona horaria del proceso.
-  const lastOut = await getDb()
-    .select({ text: schema.message.text })
-    .from(schema.message)
-    .where(
-      and(
-        eq(schema.message.conversationId, conversation.id),
-        eq(schema.message.direction, "out"),
-        sql`${schema.message.createdAt} > now() - make_interval(mins => ${REPEAT_WINDOW_MIN})`
+  if (!opts?.allowRepeat) {
+    const lastOut = await getDb()
+      .select({ text: schema.message.text })
+      .from(schema.message)
+      .where(
+        and(
+          eq(schema.message.conversationId, conversation.id),
+          eq(schema.message.direction, "out"),
+          sql`${schema.message.createdAt} > now() - make_interval(mins => ${REPEAT_WINDOW_MIN})`
+        )
       )
-    )
-    .orderBy(desc(schema.message.createdAt))
-    .limit(1);
-  if (isSameReplyText(text, lastOut[0]?.text)) {
-    console.warn(
-      `[agente] respuesta idéntica a la anterior en ${conversation.id}: se suprime`
-    );
-    return;
+      .orderBy(desc(schema.message.createdAt))
+      .limit(1);
+    if (isSameReplyText(text, lastOut[0]?.text)) {
+      console.warn(
+        `[agente] respuesta idéntica a la anterior en ${conversation.id}: se suprime`
+      );
+      return;
+    }
   }
 
   if (conversation.isTest) {
