@@ -111,6 +111,55 @@ export function minSchedulableStart(
   return atLocalTime(day, opts.workStartMin, timezone);
 }
 
+/** ¿[start, end) choca con algún intervalo ocupado? */
+export function overlapsBusy(
+  start: Date,
+  end: Date,
+  busy: { start: Date; end: Date }[]
+): boolean {
+  return busy.some(
+    (b) => start.getTime() < b.end.getTime() && end.getTime() > b.start.getTime()
+  );
+}
+
+/**
+ * Próximas franjas LIBRES: enumera inicios válidos (día hábil, jornada,
+ * rejilla de slots) desde `from`, descarta los que chocan con `busy` y
+ * devuelve los primeros `count`. Horizonte acotado para no iterar sin fin.
+ */
+export function nextFreeSlots(input: {
+  from: Date;
+  timezone: string;
+  workStartMin: number;
+  workEndMin: number;
+  slotMinutes: number;
+  durationMin: number;
+  busy: { start: Date; end: Date }[];
+  count: number;
+  horizonDays?: number;
+}): Date[] {
+  const found: Date[] = [];
+  const horizon = input.horizonDays ?? 30;
+  let day = new Date(input.from.getTime());
+  for (let i = 0; i < horizon && found.length < input.count; i++) {
+    if (isBusinessDay(day, input.timezone)) {
+      for (
+        let minutes = input.workStartMin;
+        minutes <= input.workEndMin - input.slotMinutes &&
+        found.length < input.count;
+        minutes += input.slotMinutes
+      ) {
+        const start = atLocalTime(day, minutes, input.timezone);
+        if (start.getTime() < input.from.getTime()) continue;
+        const end = new Date(start.getTime() + input.durationMin * 60_000);
+        if (!overlapsBusy(start, end, input.busy)) found.push(start);
+      }
+    }
+    day = new Date(day.getTime() + DAY_MS);
+  }
+  return found;
+}
+
 /**
  * ¿El inicio propuesto cae en día hábil, dentro del horario laboral y en una
  * franja válida (:00/:30 con slot de 30)? El último inicio permitido deja

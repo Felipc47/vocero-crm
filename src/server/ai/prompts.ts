@@ -34,6 +34,8 @@ export type SchedulingContext = {
   timezone: string;
   /** Offset a usar en el ISO (ej. -05:00). */
   utcOffset: string;
+  /** Franjas libres verificadas contra el calendario ("lunes 27 … · …"). */
+  freeSlotsLabel?: string;
 };
 
 export function buildAgentSystemPrompt(input: {
@@ -64,6 +66,11 @@ export function buildAgentSystemPrompt(input: {
           `AGENDA DEL EQUIPO (estas reglas del sistema PREVALECEN sobre cualquier otra instrucción de agendamiento):`,
           `- Primera disponibilidad: ${input.scheduling.minStartLabel}. NUNCA aceptes ni propongas nada anterior; si el cliente pide antes, explícalo con amabilidad y ofrece 2-3 opciones desde esa fecha.`,
           `- Horario de reuniones: ${input.scheduling.workHoursLabel}.`,
+          ...(input.scheduling.freeSlotsLabel
+            ? [
+                `- Horarios LIBRES verificados en el calendario (al proponer, ofrece de aquí): ${input.scheduling.freeSlotsLabel}. El equipo ya tiene reuniones en el resto de franjas; si el cliente propone otra hora hábil puedes intentar agendarla y el sistema verificará si está libre.`,
+              ]
+            : []),
         ].join("\n")
       : null,
     [

@@ -2,7 +2,12 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { GoogleApiError, refreshAccessToken } from "@/lib/google/client";
-import { createCalendarEvent, type CalendarEvent } from "@/lib/google/calendar";
+import {
+  createCalendarEvent,
+  queryFreeBusy,
+  type BusyInterval,
+  type CalendarEvent,
+} from "@/lib/google/calendar";
 import { publish } from "@/server/events/bus";
 import { getCalendarSettings } from "@/server/org-settings";
 import {
@@ -21,6 +26,7 @@ export class ScheduleError extends Error {
     | "not_connected"
     | "reconnect_required"
     | "contact_not_found"
+    | "slot_taken"
     | "google_error";
 
   constructor(code: ScheduleError["code"], message: string) {
@@ -89,6 +95,27 @@ export async function scheduleMeeting(input: {
   let event: CalendarEvent;
   try {
     const accessToken = await refreshAccessToken(connection.refreshToken);
+
+    // Anti-sobreposición: si el calendario ya tiene algo en [start, end), no
+    // se crea el evento. Best-effort: un fallo del freeBusy no bloquea el
+    // agendamiento (queda el comportamiento previo), un choque real sí.
+    try {
+      const busy = await queryFreeBusy({
+        accessToken,
+        timeMinIso: start.toISOString(),
+        timeMaxIso: end.toISOString(),
+      });
+      if (busy.length > 0) {
+        throw new ScheduleError(
+          "slot_taken",
+          "Ese horario ya tiene una reunión agendada"
+        );
+      }
+    } catch (err) {
+      if (err instanceof ScheduleError) throw err;
+      console.warn("[agenda] freeBusy falló; se agenda sin verificar:", err);
+    }
+
     event = await createCalendarEvent({
       accessToken,
       summary: title,
@@ -98,6 +125,7 @@ export async function scheduleMeeting(input: {
       attendees,
     });
   } catch (err) {
+    if (err instanceof ScheduleError) throw err;
     if (err instanceof GoogleApiError && err.isAuthError) {
       await markGoogleReconnectRequired(input.organizationId);
       throw new ScheduleError(
@@ -159,4 +187,19 @@ export async function scheduleMeeting(input: {
   }
 
   return event;
+}
+
+/**
+ * Franjas ocupadas del calendario conectado en una ventana. Para el agente:
+ * los llamadores degradan a lista vacía si Google falla (best-effort).
+ */
+export async function getBusyIntervals(
+  organizationId: string,
+  timeMinIso: string,
+  timeMaxIso: string
+): Promise<BusyInterval[]> {
+  const connection = await getGoogleConnection(organizationId);
+  if (!connection || connection.status !== "connected") return [];
+  const accessToken = await refreshAccessToken(connection.refreshToken);
+  return queryFreeBusy({ accessToken, timeMinIso, timeMaxIso });
 }

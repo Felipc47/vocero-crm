@@ -17,6 +17,7 @@ const ERROR_STATUS: Record<ScheduleError["code"], number> = {
   not_connected: 409,
   reconnect_required: 409,
   contact_not_found: 404,
+  slot_taken: 409,
   google_error: 502,
 };
 

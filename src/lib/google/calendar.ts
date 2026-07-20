@@ -10,6 +10,45 @@ export type CalendarEvent = {
   end: string;
 };
 
+/** Intervalo ocupado del calendario (freeBusy). */
+export type BusyInterval = { start: string; end: string };
+
+/**
+ * Franjas ocupadas del calendario primario en una ventana. Es la fuente de
+ * verdad de disponibilidad: el agente solo propone y acepta horarios libres.
+ */
+export async function queryFreeBusy(input: {
+  accessToken: string;
+  timeMinIso: string;
+  timeMaxIso: string;
+}): Promise<BusyInterval[]> {
+  const env = getEnv();
+  const res = await fetch(`${env.GOOGLE_API_BASE_URL}/calendar/v3/freeBusy`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      timeMin: input.timeMinIso,
+      timeMax: input.timeMaxIso,
+      items: [{ id: "primary" }],
+    }),
+  });
+  const data = (await res.json().catch(() => null)) as {
+    calendars?: { primary?: { busy?: BusyInterval[] } };
+    error?: { message?: string; status?: string };
+  } | null;
+  if (!res.ok) {
+    throw new GoogleApiError(
+      data?.error?.message ?? `freeBusy respondió HTTP ${res.status}`,
+      res.status,
+      data?.error?.status ?? null
+    );
+  }
+  return data?.calendars?.primary?.busy ?? [];
+}
+
 /**
  * Crea un evento en el calendario primario de la cuenta conectada, con Google
  * Meet e invitaciones por correo a todos los asistentes (`sendUpdates=all`).

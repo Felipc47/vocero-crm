@@ -98,6 +98,28 @@ export async function POST(req: Request, ctx: Params) {
     });
   }
 
+  // freeBusy: intervalos ocupados = eventos ya creados en el mock que tocan
+  // la ventana pedida (así el self-test cubre la anti-sobreposición).
+  if (path === "calendar/v3/freeBusy") {
+    const body = (await req.json().catch(() => null)) as {
+      timeMin?: string;
+      timeMax?: string;
+    } | null;
+    const min = body?.timeMin ? new Date(body.timeMin) : null;
+    const max = body?.timeMax ? new Date(body.timeMax) : null;
+    const busy = state()
+      .events.map((e) => ({
+        start: (e.start as { dateTime?: string } | null)?.dateTime,
+        end: (e.end as { dateTime?: string } | null)?.dateTime,
+      }))
+      .filter((b): b is { start: string; end: string } => !!b.start && !!b.end)
+      .filter(
+        (b) =>
+          (!max || new Date(b.start) < max) && (!min || new Date(b.end) > min)
+      );
+    return Response.json({ calendars: { primary: { busy } } });
+  }
+
   if (path === "calendar/v3/calendars/primary/events") {
     const body = (await req.json().catch(() => null)) as {
       summary?: string;

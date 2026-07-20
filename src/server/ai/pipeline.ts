@@ -17,10 +17,15 @@ import { isGoogleConfigured } from "@/lib/env";
 import {
   isValidMeetingStart,
   minSchedulableStart,
+  nextFreeSlots,
   utcOffsetOf,
 } from "@/lib/business-days";
 import { getGoogleConnection } from "@/server/google/credentials";
-import { ScheduleError, scheduleMeeting } from "@/server/google/scheduling";
+import {
+  getBusyIntervals,
+  ScheduleError,
+  scheduleMeeting,
+} from "@/server/google/scheduling";
 import {
   getCalendarSettings,
   type CalendarSettings,
@@ -48,6 +53,53 @@ function minutesLabel(minutes: number): string {
   const suffix = h < 12 ? "a. m." : "p. m.";
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+/** Ventana en la que se busca disponibilidad para proponer horarios. */
+const AVAILABILITY_HORIZON_DAYS = 14;
+
+/**
+ * Próximas franjas LIBRES según el calendario real (freeBusy). Best-effort:
+ * si Google falla se devuelve lista vacía y el agente opera sin la lista —
+ * la validación dura al crear el evento sigue protegiendo contra choques.
+ */
+async function fetchFreeSlots(
+  organizationId: string,
+  settings: CalendarSettings,
+  count: number
+): Promise<Date[]> {
+  const from = minSchedulableStart(new Date(), settings.timezone, {
+    leadDays: settings.leadTimeBusinessDays,
+    workStartMin: settings.workStartMin,
+  });
+  const timeMax = new Date(
+    from.getTime() + AVAILABILITY_HORIZON_DAYS * 24 * 3600_000
+  );
+  let busy: { start: Date; end: Date }[];
+  try {
+    const intervals = await getBusyIntervals(
+      organizationId,
+      from.toISOString(),
+      timeMax.toISOString()
+    );
+    busy = intervals.map((b) => ({
+      start: new Date(b.start),
+      end: new Date(b.end),
+    }));
+  } catch (err) {
+    console.warn("[agente] no se pudo leer la disponibilidad:", err);
+    return [];
+  }
+  return nextFreeSlots({
+    from,
+    timezone: settings.timezone,
+    workStartMin: settings.workStartMin,
+    workEndMin: settings.workEndMin,
+    slotMinutes: settings.slotMinutes,
+    durationMin: settings.defaultDurationMin,
+    busy,
+    count,
+  });
 }
 
 /** Contexto temporal del agente (004): hoy + primera disponibilidad. */
@@ -212,6 +264,13 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     if (calendarAvailable) {
       calSettings = await getCalendarSettings(organizationId);
       scheduling = buildSchedulingContext(calSettings);
+      // Disponibilidad real: el agente propone solo horarios libres.
+      const slots = await fetchFreeSlots(organizationId, calSettings, 6);
+      if (slots.length > 0) {
+        scheduling.freeSlotsLabel = slots
+          .map((s) => formatInTz(s, calSettings!.timezone))
+          .join(" · ");
+      }
     }
   }
 
@@ -377,6 +436,23 @@ async function executeScheduleMeeting(
         `¡Listo! Agendé la reunión para el ${when}. Te llegará la invitación al correo ${action.email}.${meetPart}`
     );
   } catch (err) {
+    // Choque de agenda: no es un error del sistema — se negocia otra hora
+    // ofreciendo franjas realmente libres (sin handoff).
+    if (err instanceof ScheduleError && err.code === "slot_taken") {
+      const slots = calSettings
+        ? await fetchFreeSlots(conversation.organizationId, calSettings, 3)
+        : [];
+      const opciones = slots
+        .map((s) => formatInTz(s, calSettings!.timezone))
+        .join(" · ");
+      await deliverReply(
+        conversation,
+        opciones
+          ? `Justo esa hora ya está ocupada en nuestra agenda. Tengo disponible: ${opciones}. ¿Cuál te funciona mejor?`
+          : "Justo esa hora ya está ocupada en nuestra agenda. ¿Me propones otro horario y lo intento de nuevo?"
+      );
+      return;
+    }
     const detail =
       err instanceof ScheduleError ? err.code : "error inesperado";
     console.error(`[agente] schedule_meeting falló (${detail}):`, err);
