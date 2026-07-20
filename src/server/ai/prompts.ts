@@ -59,24 +59,6 @@ export function buildAgentSystemPrompt(input: {
     profile.greeting ? `Saludo sugerido para conversaciones nuevas: ${profile.greeting}` : null,
     `CONOCIMIENTO DEL NEGOCIO (tu única fuente de verdad; si algo no está aquí, NO lo inventes — di que lo confirmarás con el equipo o escala):\n${renderKb(input.kb)}`,
     `Etapas del pipeline disponibles: ${stageNames}`,
-    input.calendarAvailable && input.scheduling
-      ? [
-          `FECHA Y HORA ACTUALES: ${input.scheduling.nowLabel} (zona ${input.scheduling.timezone}).`,
-          `Usa SIEMPRE esta fecha para interpretar expresiones como "mañana", "el viernes" o "la próxima semana".`,
-          `AGENDA DEL EQUIPO (estas reglas del sistema PREVALECEN sobre cualquier otra instrucción de agendamiento):`,
-          `- Primera disponibilidad: ${input.scheduling.minStartLabel}. NUNCA aceptes ni propongas nada anterior; si el cliente pide antes, explícalo con amabilidad y ofrece 2-3 opciones desde esa fecha.`,
-          `- Horario de reuniones: ${input.scheduling.workHoursLabel}.`,
-          ...(input.scheduling.availabilityLabel
-            ? [
-                `- DISPONIBILIDAD REAL del calendario, día por día (ÚNICA fuente de verdad sobre horarios — consultada ahora mismo):`,
-                input.scheduling.availabilityLabel,
-                `- Propón y acepta horarios ÚNICAMENTE dentro de esos rangos libres. Si el cliente pide un día u hora fuera de ellos (o un día marcado "SIN disponibilidad" o que no aparece en la lista), dile con amabilidad que no hay espacio y ofrécele 2-3 horas concretas tomadas de los rangos libres del día más cercano. PROHIBIDO mencionar, ofrecer o aceptar cualquier hora que no esté dentro de estos rangos.`,
-              ]
-            : [
-                `- No tienes acceso a la disponibilidad del calendario en este momento: NO afirmes qué horas están libres u ocupadas; pide al cliente su preferencia e intenta agendarla (el sistema la validará).`,
-              ]),
-        ].join("\n")
-      : null,
     [
       "En cada turno respondes ÚNICAMENTE un objeto JSON con UNA acción:",
       '- {"action":"none"} — no responder nada.',
@@ -103,6 +85,27 @@ export function buildAgentSystemPrompt(input: {
         : []),
       "- JSON puro, sin markdown ni texto adicional.",
     ].join("\n"),
+    // La agenda va AL FINAL del prompt a propósito: es lo que el modelo debe
+    // tener más presente al responder cualquier mensaje que mencione fechas.
+    input.calendarAvailable && input.scheduling
+      ? [
+          `FECHA Y HORA ACTUALES: ${input.scheduling.nowLabel} (zona ${input.scheduling.timezone}).`,
+          `Usa SIEMPRE esta fecha para interpretar expresiones como "mañana", "el viernes" o "la próxima semana".`,
+          `AGENDA DEL EQUIPO (estas reglas del sistema PREVALECEN sobre cualquier otra instrucción de agendamiento):`,
+          `- Primera disponibilidad: ${input.scheduling.minStartLabel}. NUNCA aceptes ni propongas nada anterior; si el cliente pide antes, explícalo con amabilidad y ofrece 2-3 opciones desde esa fecha.`,
+          `- Horario de reuniones: ${input.scheduling.workHoursLabel}.`,
+          ...(input.scheduling.availabilityLabel
+            ? [
+                `- DISPONIBILIDAD REAL del calendario, día por día (ÚNICA fuente de verdad sobre horarios — consultada ahora mismo):`,
+                input.scheduling.availabilityLabel,
+                `- CHEQUEO OBLIGATORIO: cada vez que el cliente pida una reunión o mencione un día u hora (incluso en su PRIMER mensaje), antes de escribir tu respuesta busca ese día en la lista de arriba y responde SEGÚN ella: si la hora pedida cae dentro de un rango libre, acéptala; si cae fuera (o el día está "SIN disponibilidad" o no aparece), di de una vez que no hay espacio a esa hora y ofrece 2-3 horas concretas de los rangos libres más cercanos. NUNCA digas "claro", "perfecto" ni aceptes una hora sin haberla verificado en la lista.`,
+                `- PROHIBIDO mencionar, ofrecer o aceptar cualquier hora que no esté dentro de esos rangos libres.`,
+              ]
+            : [
+                `- No tienes acceso a la disponibilidad del calendario en este momento: NO afirmes qué horas están libres u ocupadas; pide al cliente su preferencia e intenta agendarla (el sistema la validará).`,
+              ]),
+        ].join("\n")
+      : null,
   ]
     .filter(Boolean)
     .join("\n\n");
