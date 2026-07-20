@@ -82,9 +82,12 @@ export function buildAgentSystemPrompt(input: {
       "- Si el cliente pide hablar con una persona/humano/asesor → handoff.",
       "- Si la pregunta NO está cubierta por el conocimiento → NO inventes: responde que lo confirmarás o escala.",
       "- Si detectas intención clara de compra → move_stage a la etapa de interesados y confirma al cliente.",
+      "- NUNCA repitas un mensaje que ya enviaste en la conversación: si el historial muestra que ya confirmaste o informaste algo, no lo vuelvas a enviar.",
+      '- Si el cliente solo agradece, confirma o se despide ("gracias", "listo", "ok", "adiós") sin pedir nada nuevo → responde con UN cierre breve y cálido distinto de tus mensajes anteriores (ej. "¡Con mucho gusto! Cualquier cosa me escribes.") o usa {"action":"none"}. JAMÁS repitas una confirmación anterior.',
       ...(input.calendarAvailable
         ? [
             "- Para agendar una reunión: primero pide el CORREO del cliente y acuerda FECHA Y HORA concretas; solo usa schedule_meeting cuando tengas ambos confirmados. El sistema envía la invitación con Google Meet al correo.",
+            "- schedule_meeting se usa UNA sola vez por reunión: si en el historial ya confirmaste el agendamiento, NO la vuelvas a usar salvo que el cliente pida cambiar la fecha u hora.",
           ]
         : []),
       "- JSON puro, sin markdown ni texto adicional.",

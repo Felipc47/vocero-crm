@@ -146,6 +146,12 @@ export async function scheduleMeeting(input: {
     )
     .limit(1);
   if (conv[0]) {
+    // Marca de reunión agendada: el agente la usa para no re-agendar si el
+    // modelo repite schedule_meeting (p. ej. tras un "¡Gracias!").
+    await db
+      .update(schema.conversation)
+      .set({ meetingScheduledFor: start, updatedAt: new Date() })
+      .where(eq(schema.conversation.id, conv[0].id));
     publish(input.organizationId, {
       type: "conversation.updated",
       data: { conversation: { id: conv[0].id } },

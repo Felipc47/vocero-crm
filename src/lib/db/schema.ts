@@ -187,6 +187,8 @@ export const conversation = pgTable(
     }),
     lastInboundAt: timestamp("last_inbound_at"),
     lastMessageAt: timestamp("last_message_at"),
+    /** Inicio de la última reunión agendada: evita re-agendar por repetición. */
+    meetingScheduledFor: timestamp("meeting_scheduled_for"),
     unreadCount: integer("unread_count").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

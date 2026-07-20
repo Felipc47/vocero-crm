@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { getEnv, isAiConfigured } from "@/lib/env";
@@ -8,6 +8,10 @@ import { isWindowOpen } from "@/server/inbox/window";
 import { SendError, sendText } from "@/server/inbox/send";
 import { AgentAction, degradeAction, resolveStage, type AgentActionType } from "@/server/ai/actions";
 import { matchesHandoffIntent } from "@/server/ai/handoff";
+import {
+  isSameReplyText,
+  REPEAT_WINDOW_MIN,
+} from "@/server/ai/repeat-guard";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
 import {
@@ -312,6 +316,14 @@ async function executeScheduleMeeting(
     return;
   }
 
+  // Repetición del modelo ("¡Gracias!" → re-agendar lo mismo): la reunión ya
+  // existe → ni evento duplicado ni re-confirmación (solo el reply si trae
+  // uno distinto; el guard de deliverReply filtra los idénticos).
+  if (conversation.meetingScheduledFor?.getTime() === start.getTime()) {
+    if (action.reply) await deliverReply(conversation, action.reply);
+    return;
+  }
+
   // Regla de negocio (004): antelación mínima en días hábiles, a nivel de
   // DÍA (el mínimo abre al inicio de la jornada — jamás "martes 9:24 p.m.").
   const tz = calSettings.timezone;
@@ -383,6 +395,29 @@ async function deliverReply(
   conversation: Conversation,
   text: string
 ): Promise<void> {
+  // Red de seguridad anti-repetición: idéntico al último saliente reciente
+  // de la conversación → se suprime (el prompt ya lo prohíbe; esto lo garantiza).
+  // La recencia se filtra con el reloj de la BD: es la misma fuente que puso
+  // el created_at, así que no depende de la zona horaria del proceso.
+  const lastOut = await getDb()
+    .select({ text: schema.message.text })
+    .from(schema.message)
+    .where(
+      and(
+        eq(schema.message.conversationId, conversation.id),
+        eq(schema.message.direction, "out"),
+        sql`${schema.message.createdAt} > now() - make_interval(mins => ${REPEAT_WINDOW_MIN})`
+      )
+    )
+    .orderBy(desc(schema.message.createdAt))
+    .limit(1);
+  if (isSameReplyText(text, lastOut[0]?.text)) {
+    console.warn(
+      `[agente] respuesta idéntica a la anterior en ${conversation.id}: se suprime`
+    );
+    return;
+  }
+
   if (conversation.isTest) {
     await persistTestOutbound(conversation, text);
     return;
