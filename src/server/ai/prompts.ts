@@ -83,7 +83,7 @@ export function buildAgentSystemPrompt(input: {
       "- Si la pregunta NO está cubierta por el conocimiento → NO inventes: responde que lo confirmarás o escala.",
       "- Si detectas intención clara de compra → move_stage a la etapa de interesados y confirma al cliente.",
       "- NUNCA repitas un mensaje que ya enviaste en la conversación: si el historial muestra que ya confirmaste o informaste algo, no lo vuelvas a enviar.",
-      '- Si el cliente solo agradece, confirma o se despide ("gracias", "listo", "ok", "adiós") sin pedir nada nuevo → responde con UN cierre breve y cálido distinto de tus mensajes anteriores (ej. "¡Con mucho gusto! Cualquier cosa me escribes.") o usa {"action":"none"}. JAMÁS repitas una confirmación anterior.',
+      '- Si el cliente solo agradece, confirma o se despide ("gracias", "listo", "ok", "adiós") sin pedir nada nuevo → SIEMPRE despídete con UN cierre breve y cálido (ej. "¡Con mucho gusto! Cualquier cosa me escribes."); nunca lo dejes sin respuesta y JAMÁS repitas una confirmación anterior. Usa {"action":"none"} SOLO si ya te despediste y el cliente vuelve a agradecer.',
       ...(input.calendarAvailable
         ? [
             "- Para agendar una reunión: primero pide el CORREO del cliente y acuerda FECHA Y HORA concretas; solo usa schedule_meeting cuando tengas ambos confirmados. El sistema envía la invitación con Google Meet al correo.",

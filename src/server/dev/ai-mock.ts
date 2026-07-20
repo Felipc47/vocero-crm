@@ -96,6 +96,30 @@ export function aiMockCompletion(messages: InMessage[]): string {
     });
   }
 
+  // Cierre: solo agradecimiento/despedida → despedida breve (contrato del
+  // prompt). Si el cliente insiste, el guard anti-repetición del pipeline
+  // suprime el segundo cierre idéntico.
+  const bare = text.replace(/[¡!¿?.,;:]/g, "").replace(/\s+/g, " ").trim();
+  const closures = [
+    "gracias",
+    "muchas gracias",
+    "mil gracias",
+    "perfecto gracias",
+    "listo gracias",
+    "ok gracias",
+    "vale gracias",
+    "adios",
+    "adiós",
+    "hasta luego",
+    "chao",
+  ];
+  if (closures.includes(bare)) {
+    return JSON.stringify({
+      action: "reply",
+      text: "¡Con mucho gusto! Cualquier cosa me escribes.",
+    });
+  }
+
   const eco = lastUser.slice(0, 80);
   return JSON.stringify({
     action: "reply",
