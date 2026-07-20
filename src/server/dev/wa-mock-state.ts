@@ -30,15 +30,30 @@ type WaMockState = {
 
 const globalForMock = globalThis as unknown as { __waMockState?: WaMockState };
 
+/** Semilla del contador: los `wamid.mock.*` deben ser únicos ENTRE reinicios
+ * del proceso (la BD persiste y dedupe por wa_message_id UNIQUE); arrancar en
+ * 0 hacía chocar los ids de corridas anteriores y el self-test fallaba. */
+function seedCounter(): number {
+  return Date.now();
+}
+
 export function getWaMockState(): WaMockState {
   if (!globalForMock.__waMockState) {
-    globalForMock.__waMockState = { outbox: [], templates: [], counter: 0 };
+    globalForMock.__waMockState = {
+      outbox: [],
+      templates: [],
+      counter: seedCounter(),
+    };
   }
   return globalForMock.__waMockState;
 }
 
 export function resetWaMockState(): void {
-  globalForMock.__waMockState = { outbox: [], templates: [], counter: 0 };
+  globalForMock.__waMockState = {
+    outbox: [],
+    templates: [],
+    counter: seedCounter(),
+  };
 }
 
 export function nextN(): number {

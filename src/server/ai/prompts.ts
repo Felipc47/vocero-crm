@@ -82,7 +82,7 @@ export function buildAgentSystemPrompt(input: {
       '- {"action":"handoff","reason":"...","farewell":"..."} — escalar a un humano (farewell opcional para despedirte).',
       ...(input.calendarAvailable
         ? [
-            `- {"action":"schedule_meeting","email":"...","datetime":"<ISO 8601 con offset ${input.scheduling?.utcOffset ?? "-05:00"}, ej. 2026-07-20T15:00:00${input.scheduling?.utcOffset ?? "-05:00"}>","reply":"..."} — agendar la reunión/sesión de diagnóstico en el calendario (reply opcional para confirmar).`,
+            `- {"action":"schedule_meeting","email":"...","datetime":"<ISO 8601 con offset ${input.scheduling?.utcOffset ?? "-05:00"}, ej. 2026-07-20T15:00:00${input.scheduling?.utcOffset ?? "-05:00"}>","clientOk":"<cita TEXTUAL del mensaje del cliente donde confirma o propone esa fecha/hora>","reply":"..."} — agendar la reunión en el calendario (reply opcional para confirmar).`,
           ]
         : []),
       "Reglas duras:",
@@ -93,7 +93,7 @@ export function buildAgentSystemPrompt(input: {
       '- Si el cliente solo agradece, confirma o se despide ("gracias", "listo", "ok", "adiós") sin pedir nada nuevo → SIEMPRE despídete con UN cierre breve y cálido (ej. "¡Con mucho gusto! Cualquier cosa me escribes."); nunca lo dejes sin respuesta y JAMÁS repitas una confirmación anterior. Usa {"action":"none"} SOLO si ya te despediste y el cliente vuelve a agradecer.',
       ...(input.calendarAvailable
         ? [
-            "- Para agendar una reunión: primero pide el CORREO del cliente y acuerda FECHA Y HORA concretas; solo usa schedule_meeting cuando tengas ambos confirmados. El sistema envía la invitación con Google Meet al correo.",
+            "- Flujo OBLIGATORIO para agendar, en este orden: (1) pide el CORREO del cliente; (2) ofrece 2-3 horarios de la lista de horarios LIBRES y pregunta cuál le queda mejor; (3) SOLO cuando el cliente haya confirmado o propuesto una fecha y hora EN SUS PROPIAS PALABRAS, usa schedule_meeting con clientOk = la cita textual de ese mensaje. JAMÁS agendes una hora que el cliente no haya confirmado, aunque ya tengas el correo — si falta la hora, tu respuesta es ofrecer opciones, no agendar. El sistema envía la invitación con Google Meet al correo.",
             "- schedule_meeting se usa UNA sola vez por reunión: si en el historial ya confirmaste el agendamiento, NO la vuelvas a usar salvo que el cliente pida cambiar la fecha u hora.",
           ]
         : []),

@@ -12,6 +12,7 @@ import {
   isSameReplyText,
   REPEAT_WINDOW_MIN,
 } from "@/server/ai/repeat-guard";
+import { quoteAppearsInInbound } from "@/server/ai/schedule-confirm";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
 import {
@@ -340,12 +341,16 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       return;
     }
     case "schedule_meeting": {
+      const inboundTexts = history
+        .filter((m) => m.direction === "in" && m.text)
+        .map((m) => m.text!);
       await executeScheduleMeeting(
         conversation,
         action,
         calendarAvailable,
         scheduling,
-        calSettings
+        calSettings,
+        inboundTexts
       );
       return;
     }
@@ -361,7 +366,8 @@ async function executeScheduleMeeting(
   action: Extract<AgentActionType, { action: "schedule_meeting" }>,
   calendarAvailable: boolean,
   scheduling: SchedulingContext | undefined,
-  calSettings: CalendarSettings | undefined
+  calSettings: CalendarSettings | undefined,
+  inboundTexts: string[]
 ): Promise<void> {
   const start = new Date(action.datetime);
   if (!calendarAvailable || !calSettings || Number.isNaN(start.getTime())) {
@@ -380,6 +386,25 @@ async function executeScheduleMeeting(
   // uno distinto; el guard de deliverReply filtra los idénticos).
   if (conversation.meetingScheduledFor?.getTime() === start.getTime()) {
     if (action.reply) await deliverReply(conversation, action.reply);
+    return;
+  }
+
+  // El CLIENTE debe haber confirmado la hora: el modelo cita sus palabras
+  // (clientOk) y aquí se verifica que la cita exista en el historial entrante.
+  // Sin evidencia → no se agenda: se ofrecen horarios libres y se espera.
+  if (!quoteAppearsInInbound(action.clientOk, inboundTexts)) {
+    const slots = calSettings
+      ? await fetchFreeSlots(conversation.organizationId, calSettings, 3)
+      : [];
+    const opciones = slots
+      .map((s) => formatInTz(s, calSettings!.timezone))
+      .join(" · ");
+    await deliverReply(
+      conversation,
+      opciones
+        ? `Antes de agendar, confírmame qué horario te queda mejor. Tengo disponible: ${opciones}. ¿Cuál prefieres?`
+        : "Antes de agendar, confírmame qué día y hora te quedan mejor y con gusto la programo."
+    );
     return;
   }
 

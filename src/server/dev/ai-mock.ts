@@ -76,10 +76,14 @@ export function aiMockCompletion(messages: InMessage[]): string {
     while (!tooSoon && [0, 6].includes(start.getUTCDay())) {
       start.setTime(start.getTime() + 24 * 3600_000);
     }
+    // "sin confirmar" simula al modelo agendando sin que el cliente haya
+    // confirmado la hora (omite clientOk): el pipeline debe frenar y ofrecer
+    // horarios en lugar de crear el evento.
     return JSON.stringify({
       action: "schedule_meeting",
       email: emailMatch[0],
       datetime: start.toISOString(),
+      clientOk: text.includes("sin confirmar") ? undefined : lastUser,
     });
   }
 

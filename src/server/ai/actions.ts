@@ -29,6 +29,10 @@ export const AgentAction = z.discriminatedUnion("action", [
     action: z.literal("schedule_meeting"),
     email: z.string().email(),
     datetime: z.string().min(1),
+    /** Cita textual del mensaje del cliente que confirma/propone la hora.
+     * El pipeline verifica que exista en el historial entrante: sin
+     * confirmación real del cliente NO se agenda (se ofrecen horarios). */
+    clientOk: z.string().optional(),
     title: z.string().optional(),
     reply: z.string().optional(),
   }),
