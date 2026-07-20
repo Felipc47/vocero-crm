@@ -34,8 +34,8 @@ export type SchedulingContext = {
   timezone: string;
   /** Offset a usar en el ISO (ej. -05:00). */
   utcOffset: string;
-  /** Franjas libres verificadas contra el calendario ("lunes 27 … · …"). */
-  freeSlotsLabel?: string;
+  /** Disponibilidad REAL por día (rangos libres del calendario), multilínea. */
+  availabilityLabel?: string;
 };
 
 export function buildAgentSystemPrompt(input: {
@@ -66,11 +66,15 @@ export function buildAgentSystemPrompt(input: {
           `AGENDA DEL EQUIPO (estas reglas del sistema PREVALECEN sobre cualquier otra instrucción de agendamiento):`,
           `- Primera disponibilidad: ${input.scheduling.minStartLabel}. NUNCA aceptes ni propongas nada anterior; si el cliente pide antes, explícalo con amabilidad y ofrece 2-3 opciones desde esa fecha.`,
           `- Horario de reuniones: ${input.scheduling.workHoursLabel}.`,
-          ...(input.scheduling.freeSlotsLabel
+          ...(input.scheduling.availabilityLabel
             ? [
-                `- Horarios LIBRES verificados en el calendario (al proponer, ofrece de aquí): ${input.scheduling.freeSlotsLabel}. El equipo ya tiene reuniones en el resto de franjas; si el cliente propone otra hora hábil puedes intentar agendarla y el sistema verificará si está libre.`,
+                `- DISPONIBILIDAD REAL del calendario, día por día (ÚNICA fuente de verdad sobre horarios — consultada ahora mismo):`,
+                input.scheduling.availabilityLabel,
+                `- Propón y acepta horarios ÚNICAMENTE dentro de esos rangos libres. Si el cliente pide un día u hora fuera de ellos (o un día marcado "SIN disponibilidad" o que no aparece en la lista), dile con amabilidad que no hay espacio y ofrécele 2-3 horas concretas tomadas de los rangos libres del día más cercano. PROHIBIDO mencionar, ofrecer o aceptar cualquier hora que no esté dentro de estos rangos.`,
               ]
-            : []),
+            : [
+                `- No tienes acceso a la disponibilidad del calendario en este momento: NO afirmes qué horas están libres u ocupadas; pide al cliente su preferencia e intenta agendarla (el sistema la validará).`,
+              ]),
         ].join("\n")
       : null,
     [

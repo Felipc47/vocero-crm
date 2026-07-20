@@ -57,9 +57,11 @@ async function tokenRequest(
   return data;
 }
 
-/** Scopes mínimos: crear eventos + identificar la cuenta conectada. */
+/** Scopes mínimos: crear eventos + leer disponibilidad (freeBusy) +
+ * identificar la cuenta conectada. Si se agrega un scope, las conexiones
+ * existentes deben RECONECTARSE en Ajustes → Calendario para otorgarlo. */
 export const GOOGLE_SCOPES =
-  "https://www.googleapis.com/auth/calendar.events openid email";
+  "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy openid email";
 
 /** URL de autorización (pantalla de consentimiento de Google). */
 export function buildAuthUrl(redirectUri: string, state: string): string {

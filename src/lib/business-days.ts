@@ -160,6 +160,66 @@ export function nextFreeSlots(input: {
   return found;
 }
 
+export type DayAvailability = {
+  /** Inicio de jornada de ese día (ancla para formatear la fecha). */
+  day: Date;
+  /** Rangos libres [inicio, fin) alineados a la rejilla de franjas. */
+  ranges: { start: Date; end: Date }[];
+};
+
+/**
+ * Disponibilidad REAL por día para los próximos `businessDays` días hábiles:
+ * recorre la rejilla de franjas de cada jornada, descarta las ocupadas y
+ * compacta las libres consecutivas en rangos. Un día sin rangos = sin
+ * disponibilidad (el agente debe decirlo, no inventar).
+ */
+export function freeRangesByDay(input: {
+  from: Date;
+  timezone: string;
+  workStartMin: number;
+  workEndMin: number;
+  slotMinutes: number;
+  busy: { start: Date; end: Date }[];
+  businessDays: number;
+}): DayAvailability[] {
+  const out: DayAvailability[] = [];
+  let day = new Date(input.from.getTime());
+  let guard = 0;
+  while (out.length < input.businessDays && guard++ < input.businessDays * 4) {
+    if (isBusinessDay(day, input.timezone)) {
+      const ranges: { start: Date; end: Date }[] = [];
+      let open: { start: Date; end: Date } | null = null;
+      for (
+        let minutes = input.workStartMin;
+        minutes <= input.workEndMin - input.slotMinutes;
+        minutes += input.slotMinutes
+      ) {
+        const start = atLocalTime(day, minutes, input.timezone);
+        const end = new Date(start.getTime() + input.slotMinutes * 60_000);
+        const free =
+          start.getTime() >= input.from.getTime() &&
+          !overlapsBusy(start, end, input.busy);
+        if (free) {
+          if (open && open.end.getTime() === start.getTime()) {
+            open.end = end;
+          } else {
+            open = { start, end };
+            ranges.push(open);
+          }
+        } else {
+          open = null;
+        }
+      }
+      out.push({
+        day: atLocalTime(day, input.workStartMin, input.timezone),
+        ranges,
+      });
+    }
+    day = new Date(day.getTime() + DAY_MS);
+  }
+  return out;
+}
+
 /**
  * ¿El inicio propuesto cae en día hábil, dentro del horario laboral y en una
  * franja válida (:00/:30 con slot de 30)? El último inicio permitido deja

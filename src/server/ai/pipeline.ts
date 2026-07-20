@@ -16,10 +16,12 @@ import { quoteAppearsInInbound } from "@/server/ai/schedule-confirm";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
 import {
+  freeRangesByDay,
   isValidMeetingStart,
   minSchedulableStart,
   nextFreeSlots,
   utcOffsetOf,
+  type DayAvailability,
 } from "@/lib/business-days";
 import { getGoogleConnection } from "@/server/google/credentials";
 import {
@@ -58,6 +60,92 @@ function minutesLabel(minutes: number): string {
 
 /** Ventana en la que se busca disponibilidad para proponer horarios. */
 const AVAILABILITY_HORIZON_DAYS = 14;
+/** Días hábiles cuya disponibilidad ve el modelo (cubre ~2 semanas). */
+const AVAILABILITY_BUSINESS_DAYS = 10;
+
+/** "miércoles, 22 de julio" en la zona del negocio. */
+function formatDayInTz(d: Date, timezone: string): string {
+  return d.toLocaleDateString("es-CO", {
+    timeZone: timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+/** "9:00 a. m." en la zona del negocio. */
+function formatHourInTz(d: Date, timezone: string): string {
+  return d.toLocaleTimeString("es-CO", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+/** Texto por día que ve el modelo: rangos libres reales o "SIN disponibilidad". */
+export function buildAvailabilityLabel(
+  days: DayAvailability[],
+  timezone: string
+): string {
+  return days
+    .map((d) => {
+      const ranges = d.ranges
+        .map(
+          (r) =>
+            `${formatHourInTz(r.start, timezone)} a ${formatHourInTz(r.end, timezone)}`
+        )
+        .join(" y de ");
+      return `- ${formatDayInTz(d.day, timezone)}: ${
+        ranges ? `libre de ${ranges}` : "SIN disponibilidad"
+      }`;
+    })
+    .join("\n");
+}
+
+/** Disponibilidad por día desde el calendario real (freeBusy). */
+async function fetchAvailabilityByDay(
+  organizationId: string,
+  settings: CalendarSettings
+): Promise<DayAvailability[]> {
+  const from = minSchedulableStart(new Date(), settings.timezone, {
+    leadDays: settings.leadTimeBusinessDays,
+    workStartMin: settings.workStartMin,
+  });
+  const timeMax = new Date(
+    from.getTime() + (AVAILABILITY_BUSINESS_DAYS + 6) * 24 * 3600_000
+  );
+  let busy: { start: Date; end: Date }[];
+  try {
+    const intervals = await getBusyIntervals(
+      organizationId,
+      from.toISOString(),
+      timeMax.toISOString()
+    );
+    busy = intervals.map((b) => ({
+      start: new Date(b.start),
+      end: new Date(b.end),
+    }));
+  } catch (err) {
+    // Sin disponibilidad real el modelo queda ciego: que el log lo grite.
+    // Causa típica: la conexión de Google carece del scope calendar.freebusy
+    // (reconectar en Ajustes → Calendario tras actualizar los scopes).
+    console.error(
+      "[agente] freeBusy falló — el agente NO verá la disponibilidad real:",
+      err
+    );
+    return [];
+  }
+  return freeRangesByDay({
+    from,
+    timezone: settings.timezone,
+    workStartMin: settings.workStartMin,
+    workEndMin: settings.workEndMin,
+    slotMinutes: settings.slotMinutes,
+    busy,
+    businessDays: AVAILABILITY_BUSINESS_DAYS,
+  });
+}
 
 /**
  * Próximas franjas LIBRES según el calendario real (freeBusy). Best-effort:
@@ -265,12 +353,13 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     if (calendarAvailable) {
       calSettings = await getCalendarSettings(organizationId);
       scheduling = buildSchedulingContext(calSettings);
-      // Disponibilidad real: el agente propone solo horarios libres.
-      const slots = await fetchFreeSlots(organizationId, calSettings, 6);
-      if (slots.length > 0) {
-        scheduling.freeSlotsLabel = slots
-          .map((s) => formatInTz(s, calSettings!.timezone))
-          .join(" · ");
+      // Disponibilidad real por día: única fuente para proponer horarios.
+      const days = await fetchAvailabilityByDay(organizationId, calSettings);
+      if (days.length > 0) {
+        scheduling.availabilityLabel = buildAvailabilityLabel(
+          days,
+          calSettings.timezone
+        );
       }
     }
   }
