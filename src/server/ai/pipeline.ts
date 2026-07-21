@@ -298,6 +298,13 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   const lastInbound = [...history].reverse().find((m) => m.direction === "in");
   if (!lastInbound) return;
 
+  // Turno ya atendido: si el último mensaje es SALIENTE, el entrante ya tuvo
+  // respuesta. Cierra la carrera del barrido de recuperación (encolaba un
+  // turno extra si revisaba mientras el original aún no enviaba) — la causa
+  // de respuestas dobles casi idénticas.
+  const lastMessage = history[history.length - 1];
+  if (lastMessage?.direction === "out") return;
+
   // Ventana cerrada: el agente JAMÁS envía texto libre → handoff 'ventana'.
   if (!conversation.isTest && !isWindowOpen(conversation.lastInboundAt)) {
     await applyHandoff(conversationId, organizationId, "ventana");

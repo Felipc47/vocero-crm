@@ -26,4 +26,26 @@ describe("isSameReplyText", () => {
     expect(isSameReplyText(CONFIRM, undefined)).toBe(false);
     expect(isSameReplyText(CONFIRM, "")).toBe(false);
   });
+
+  it("detecta el casi-duplicado con una palabra cambiada (caso real una/la)", () => {
+    const a =
+      "Podemos desarrollar una tienda virtual para que tus clientes vean los juguetes, hagan el pedido y paguen desde la página. ¿Te gustaría agendar una reunión sin costo para revisar el alcance?";
+    const b =
+      "Podemos desarrollar la tienda virtual para que tus clientes vean los juguetes, hagan el pedido y paguen desde la página. ¿Te gustaría agendar una reunión sin costo para revisar el alcance?";
+    expect(isSameReplyText(a, b)).toBe(true);
+  });
+
+  it("no confunde respuestas genuinamente distintas", () => {
+    expect(
+      isSameReplyText(
+        "El jueves tengo libre de 9:00 a. m. a 11:30 a. m. ¿Te funciona alguna de esas horas para la reunión?",
+        "Para enviarte la invitación necesito tu correo electrónico. ¿Me lo compartes por aquí?"
+      )
+    ).toBe(false);
+  });
+
+  it("en textos cortos exige igualdad exacta (no similitud)", () => {
+    expect(isSameReplyText("¡Con mucho gusto!", "¡Con mucho gusto!")).toBe(true);
+    expect(isSameReplyText("¡Con mucho gusto!", "¡Con gusto!")).toBe(false);
+  });
 });
