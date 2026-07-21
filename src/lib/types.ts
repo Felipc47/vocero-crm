@@ -22,6 +22,7 @@ export type MessageDto = {
   type: string;
   text: string | null;
   status: "pending" | "sent" | "delivered" | "read" | "failed";
+  error: string | null;
   aiGenerated: boolean;
   createdAt: string;
 };

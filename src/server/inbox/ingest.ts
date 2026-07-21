@@ -215,6 +215,7 @@ export function serializeMessage(m: typeof schema.message.$inferSelect) {
     type: m.type,
     text: m.text,
     status: m.status,
+    error: m.error,
     aiGenerated: m.aiGenerated,
     createdAt: (m.waTimestamp ?? m.createdAt).toISOString(),
   };

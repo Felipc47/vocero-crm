@@ -116,6 +116,13 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
                 </span>
               </div>
             </div>
+            {out && m.status === "failed" && (
+              <div className="mt-1 flex justify-end">
+                <span className="max-w-[86%] text-right text-[11px] leading-snug text-destructive md:max-w-[74%]">
+                  No entregado{m.error ? `: ${m.error}` : ""}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
