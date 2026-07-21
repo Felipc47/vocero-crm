@@ -134,7 +134,7 @@ export async function POST(req: Request, ctx: Params) {
     const tpl: MockTemplate = {
       id: `tplmock_${nextN()}`,
       name: String(body.name ?? ""),
-      language: String(body.language ?? "es_MX"),
+      language: String(body.language ?? "es_CO"),
       category: String(body.category ?? "UTILITY"),
       status: "PENDING",
       body: bodyComponent?.text ?? "",
@@ -148,14 +148,66 @@ export async function POST(req: Request, ctx: Params) {
     return Response.json({ success: true });
   }
 
+  // POST {templateId} → edición del cuerpo/categoría; Meta la vuelve a revisar
+  if (path.length === 1 && path[0]?.startsWith("tplmock_")) {
+    const state = getWaMockState();
+    const tpl = state.templates.find((t) => t.id === path[0]);
+    if (!tpl) {
+      return Response.json(
+        {
+          error: {
+            message: "Template does not exist",
+            type: "GraphMethodException",
+            code: 100,
+          },
+        },
+        { status: 404 }
+      );
+    }
+    const bodyComponent = (
+      body.components as { type?: string; text?: string }[] | undefined
+    )?.find((c) => (c.type ?? "").toUpperCase() === "BODY");
+    if (bodyComponent?.text !== undefined) tpl.body = bodyComponent.text;
+    if (body.category !== undefined) tpl.category = String(body.category);
+    tpl.status = "PENDING";
+    return Response.json({ success: true });
+  }
+
   return Response.json({});
 }
 
+/** DELETE {wabaId}/message_templates?name=…&hsm_id=… → baja real del estado. */
 export async function DELETE(req: Request, ctx: Params) {
   const guard = mockGuard();
   if (guard) return guard;
+  const path = normalizePath((await ctx.params).path);
   const token = bearerToken(req);
   if (token.endsWith("-invalid")) return invalidTokenResponse();
-  await ctx.params;
+
+  if (path.length === 2 && path[1] === "message_templates") {
+    const url = new URL(req.url);
+    const name = url.searchParams.get("name");
+    const hsmId = url.searchParams.get("hsm_id");
+    const state = getWaMockState();
+    const before = state.templates.length;
+    // Con hsm_id se borra solo esa versión; sin él, todas las del nombre.
+    state.templates = state.templates.filter((t) =>
+      hsmId ? t.id !== hsmId : t.name !== name
+    );
+    if (state.templates.length === before) {
+      return Response.json(
+        {
+          error: {
+            message: "Template does not exist",
+            type: "GraphMethodException",
+            code: 100,
+          },
+        },
+        { status: 404 }
+      );
+    }
+    return Response.json({ success: true });
+  }
+
   return Response.json({ success: true });
 }

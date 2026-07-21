@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw, Trash2 } from "lucide-react";
 import type { TemplateDto } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,23 +145,12 @@ export function TemplatesClient() {
 
       <div className="space-y-2">
         {templates.map((t) => (
-          <div key={t.id} className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-mono text-sm font-medium">
-                {t.name}{" "}
-                <span className="text-muted-foreground">({t.language})</span>
-              </p>
-              <Badge variant={STATUS_BADGE[t.status].variant}>
-                {STATUS_BADGE[t.status].label}
-              </Badge>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>
-            {t.status === "rejected" && t.rejectionReason && (
-              <p className="mt-2 text-xs text-destructive">
-                Razón del rechazo: {t.rejectionReason}
-              </p>
-            )}
-          </div>
+          <TemplateCard
+            key={t.id}
+            template={t}
+            isGreeting={t.id === greetingTemplateId}
+            onChanged={() => void refetch()}
+          />
         ))}
         {templates.length === 0 && (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -175,9 +164,214 @@ export function TemplatesClient() {
   );
 }
 
+/**
+ * Ficha de plantilla: categoría visible (MARKETING queda sujeta al límite por
+ * destinatario de Meta, error 131049), edición del cuerpo/categoría y borrado.
+ */
+function TemplateCard({
+  template: t,
+  isGreeting,
+  onChanged,
+}: {
+  template: TemplateDto;
+  isGreeting: boolean;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(t.body);
+  const [category, setCategory] = useState(
+    t.category === "MARKETING" ? "MARKETING" : "UTILITY"
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const marketing = t.category?.toUpperCase() === "MARKETING";
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/templates/${t.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body, category }),
+    }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo editar la plantilla");
+      return;
+    }
+    setEditing(false);
+    onChanged();
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/templates/${t.id}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo eliminar la plantilla");
+      setConfirmDelete(false);
+      return;
+    }
+    onChanged();
+  }
+
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="font-mono text-sm font-medium">
+          {t.name}{" "}
+          <span className="text-muted-foreground">({t.language})</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={marketing ? "warning" : "secondary"}>
+            {marketing ? "MARKETING" : "UTILITY"}
+          </Badge>
+          <Badge variant={STATUS_BADGE[t.status].variant}>
+            {STATUS_BADGE[t.status].label}
+          </Badge>
+        </div>
+      </div>
+
+      {marketing && (
+        <p className="mt-2 text-xs text-warning">
+          Categoría MARKETING: Meta limita cuántos mensajes promocionales recibe
+          cada persona (de todos los negocios), así que algunos envíos pueden no
+          entregarse. Las UTILITY de seguimiento no tienen ese límite.
+        </p>
+      )}
+
+      {editing ? (
+        <div className="mt-3 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor={`edit-body-${t.id}`}>Cuerpo</Label>
+            <Textarea
+              id={`edit-body-${t.id}`}
+              rows={3}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`edit-cat-${t.id}`}>Categoría</Label>
+            <select
+              id={`edit-cat-${t.id}`}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="flex h-9 w-full max-w-xs rounded-md border border-input bg-card px-3 text-sm"
+            >
+              <option value="UTILITY">UTILITY (seguimiento)</option>
+              <option value="MARKETING">MARKETING</option>
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Al guardar, Meta vuelve a revisar la plantilla y queda pendiente
+            hasta que la apruebe. El nombre y el idioma no se pueden cambiar:
+            para eso hay que eliminarla y crearla de nuevo.
+          </p>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busy || !body.trim()} onClick={() => void save()}>
+              {busy ? "Enviando a Meta…" : "Guardar y reenviar a revisión"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setEditing(false);
+                setBody(t.body);
+                setError(null);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">{t.body}</p>
+          {t.status === "rejected" && t.rejectionReason && (
+            <p className="mt-2 text-xs text-destructive">
+              Razón del rechazo: {t.rejectionReason}
+            </p>
+          )}
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {confirmDelete ? (
+            <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <p className="text-sm">
+                ¿Eliminar <span className="font-mono">{t.name}</span>? Se borra
+                también en Meta y no se puede deshacer.
+                {isGreeting && (
+                  <>
+                    {" "}
+                    Es tu saludo automático de leads: quedará en «No enviar
+                    saludo automático» hasta que elijas otra.
+                  </>
+                )}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => void remove()}
+                >
+                  {busy ? "Eliminando…" : "Sí, eliminar"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setBody(t.body);
+                  setCategory(marketing ? "MARKETING" : "UTILITY");
+                  setEditing(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Eliminar
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function CreateForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
-  const [language, setLanguage] = useState("es_MX");
+  const [language, setLanguage] = useState("es_CO");
   const [category, setCategory] = useState<"UTILITY" | "MARKETING">("UTILITY");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -232,9 +426,10 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
               onChange={(e) => setLanguage(e.target.value)}
               className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
             >
-              <option value="es_MX">es_MX</option>
-              <option value="es">es</option>
-              <option value="es_AR">es_AR</option>
+              <option value="es_CO">es_CO (Colombia)</option>
+              <option value="es">es (español genérico)</option>
+              <option value="es_MX">es_MX (México)</option>
+              <option value="es_AR">es_AR (Argentina)</option>
               <option value="en_US">en_US</option>
             </select>
           </div>

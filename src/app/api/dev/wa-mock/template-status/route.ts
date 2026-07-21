@@ -15,6 +15,8 @@ const bodySchema = z.object({
   language: z.string().min(1),
   event: z.enum(["APPROVED", "REJECTED"]),
   reason: z.string().optional(),
+  /** Simula la recategorización automática de Meta (UTILITY → MARKETING). */
+  category: z.enum(["UTILITY", "MARKETING"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -29,7 +31,10 @@ export async function POST(req: Request) {
   const tpl = state.templates.find(
     (t) => t.name === body.data.name && t.language === body.data.language
   );
-  if (tpl) tpl.status = body.data.event;
+  if (tpl) {
+    tpl.status = body.data.event;
+    if (body.data.category) tpl.category = body.data.category;
+  }
 
   const payload = buildTemplateStatusPayload({
     ...body.data,
