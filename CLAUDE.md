@@ -1,9 +1,9 @@
-# Vocero CRM — Guía para Claude
+# Seomos CRM — Guía para Claude
 
-Vocero es un CRM de WhatsApp open source (MIT), self-hosted, con agente de IA y
+Seomos es un CRM de WhatsApp open source (MIT), self-hosted, con agente de IA y
 Laboratorio de auto-evaluación. Una instancia = un negocio. Este archivo guía a
 Claude Code (u otro asistente) para operar y **modificar** este repositorio —
-el caso típico: una agencia adaptando Vocero para un cliente.
+el caso típico: una agencia adaptando Seomos para un cliente.
 
 ## Stack
 
@@ -70,7 +70,7 @@ OPENROUTER_JUDGE_MODEL=anthropic/claude-haiku-4.5   # opcional: juez más barato
 ```
 
 Para el self-test local existe además el modo de pruebas interno (mocks) —
-ver `specs/001-vocero-core/quickstart.md`. Nunca actives mocks en producción.
+ver `specs/001-seomos-core/quickstart.md`. Nunca actives mocks en producción.
 
 ## Manejo de credenciales (obligatorio)
 

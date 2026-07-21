@@ -1,4 +1,4 @@
-# Data Model — Vocero CRM v1 (001-vocero-core)
+# Data Model — Seomos CRM v1 (001-seomos-core)
 
 Convenciones globales:
 

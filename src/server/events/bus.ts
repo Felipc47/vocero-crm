@@ -23,15 +23,15 @@ export type SseEvent =
       };
     };
 
-const globalForBus = globalThis as unknown as { __voceroBus?: EventEmitter };
+const globalForBus = globalThis as unknown as { __seomosBus?: EventEmitter };
 
 function getBus(): EventEmitter {
-  if (!globalForBus.__voceroBus) {
+  if (!globalForBus.__seomosBus) {
     const bus = new EventEmitter();
     bus.setMaxListeners(200);
-    globalForBus.__voceroBus = bus;
+    globalForBus.__seomosBus = bus;
   }
-  return globalForBus.__voceroBus;
+  return globalForBus.__seomosBus;
 }
 
 export function publish(organizationId: string, event: SseEvent): void {

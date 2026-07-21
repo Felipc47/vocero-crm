@@ -7,14 +7,14 @@
 type Bucket = number[]; // timestamps (ms) de los intentos
 
 const globalForRl = globalThis as unknown as {
-  __voceroRateLimit?: Map<string, Bucket>;
+  __seomosRateLimit?: Map<string, Bucket>;
 };
 
 function store(): Map<string, Bucket> {
-  if (!globalForRl.__voceroRateLimit) {
-    globalForRl.__voceroRateLimit = new Map();
+  if (!globalForRl.__seomosRateLimit) {
+    globalForRl.__seomosRateLimit = new Map();
   }
-  return globalForRl.__voceroRateLimit;
+  return globalForRl.__seomosRateLimit;
 }
 
 export type RateLimitResult = { allowed: boolean; remaining: number };

@@ -1,4 +1,4 @@
-# Quickstart — desarrollo local y self-test (001-vocero-core)
+# Quickstart — desarrollo local y self-test (001-seomos-core)
 
 ## Requisitos
 

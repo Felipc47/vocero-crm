@@ -24,7 +24,7 @@ sin agendamiento.
 
 ## 2. Configurar la instancia (Coolify)
 
-Agrega a las variables de entorno de la app `vocero-crm` y redespliega:
+Agrega a las variables de entorno de la app `seomos-crm` y redespliega:
 
 ```
 GOOGLE_CLIENT_ID=<client id>

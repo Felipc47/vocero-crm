@@ -6,8 +6,8 @@ nada global:
 
 1. En un directorio temporal: `npm i embedded-postgres playwright-core`.
 2. Arrancar PG embebido en el puerto **5433** (no 5432) con user/pass
-   `postgres/postgres` y crear la BD `vocero`.
-3. `.env` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/vocero`
+   `postgres/postgres` y crear la BD `seomos`.
+3. `.env` → `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/seomos`
    + las vars de mocks del quickstart (`WA_MOCK_ENABLED`, `META_GRAPH_BASE_URL`
    y `OPENROUTER_BASE_URL` apuntando a los mocks locales, token `test-token`).
 4. `pnpm db:migrate && pnpm dev`, conducir con `playwright-core` +
