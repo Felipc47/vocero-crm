@@ -1,5 +1,6 @@
-import { ServicesClient } from "@/components/settings/services-client";
+import { redirect } from "next/navigation";
 
-export default function ServicesSettingsPage() {
-  return <ServicesClient />;
+/** Servicios subió al menú principal; se conserva la URL vieja. */
+export default function ServicesSettingsRedirect() {
+  redirect("/services");
 }

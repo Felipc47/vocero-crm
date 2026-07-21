@@ -142,7 +142,7 @@ export function ServicesClient() {
           <CardDescription>
             Vincula cada formulario de Meta a un servicio y elige la plantilla
             de saludo que recibirán sus leads. Un formulario sin vincular usa
-            el saludo global de la pestaña Plantillas.
+            el saludo global de la sección Plantillas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

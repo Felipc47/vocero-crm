@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  FlaskConical,
+  Briefcase,
+  FileText,
   Inbox,
   Kanban,
   LogOut,
@@ -26,13 +27,14 @@ const NAV = [
   { href: "/pipeline", label: "Pipeline", icon: Kanban },
   { href: "/contacts", label: "Contactos", icon: Users },
   { href: "/agent", label: "Agente", icon: Sparkles },
-  { href: "/lab", label: "Laboratorio", icon: FlaskConical },
+  { href: "/templates", label: "Plantillas", icon: FileText },
+  { href: "/services", label: "Servicios", icon: Briefcase },
 ] as const;
 
 /* En mobile la sidebar no cabe: la navegación baja a una tab bar con las
-   mismas secciones más Ajustes (el label largo se abrevia). */
+   mismas secciones más Ajustes. */
 const MOBILE_NAV = [
-  ...NAV.map((i) => (i.href === "/lab" ? { ...i, label: "Lab" } : i)),
+  ...NAV,
   { href: "/settings", label: "Ajustes", icon: Settings },
 ] as const;
 

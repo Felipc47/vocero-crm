@@ -1,7 +1,6 @@
-import { TemplatesClient } from "@/components/settings/templates-client";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function TemplatesSettingsPage() {
-  return <TemplatesClient />;
+/** Plantillas subió al menú principal; se conserva la URL vieja. */
+export default function TemplatesSettingsRedirect() {
+  redirect("/templates");
 }
