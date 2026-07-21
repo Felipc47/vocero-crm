@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { publish } from "@/server/events/bus";
 import type { WebhookStatus } from "@/server/inbox/webhook";
+import { describeDeliveryError } from "@/server/whatsapp/delivery-errors";
 
 /** Orden monotónico de estados: nunca degradar (un delivered tardío no pisa read). */
 const STATUS_RANK: Record<string, number> = {
@@ -48,11 +49,7 @@ export async function applyStatusUpdate(
   if (!isUpgrade(msg.status, next)) return;
 
   const error =
-    next === "failed"
-      ? (status.errors?.[0]?.message ??
-        status.errors?.[0]?.title ??
-        "Envío fallido")
-      : null;
+    next === "failed" ? describeDeliveryError(status.errors?.[0]) : null;
 
   await db
     .update(schema.message)

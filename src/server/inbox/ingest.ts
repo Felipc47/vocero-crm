@@ -6,6 +6,7 @@ import { getCredentialsByPhoneNumberId } from "@/server/whatsapp/credentials";
 import type { WebhookValue } from "@/server/inbox/webhook";
 import { applyStatusUpdate } from "@/server/inbox/status";
 import { onLeadActivity } from "@/server/inbox/lead-activity";
+import { translateStoredError } from "@/server/whatsapp/delivery-errors";
 import { maybeRunAgentTurn } from "@/server/ai/trigger";
 
 /** Tipos de contenido soportados; el resto se ignora sin error. */
@@ -215,7 +216,7 @@ export function serializeMessage(m: typeof schema.message.$inferSelect) {
     type: m.type,
     text: m.text,
     status: m.status,
-    error: m.error,
+    error: m.error ? translateStoredError(m.error) : null,
     aiGenerated: m.aiGenerated,
     createdAt: (m.waTimestamp ?? m.createdAt).toISOString(),
   };
