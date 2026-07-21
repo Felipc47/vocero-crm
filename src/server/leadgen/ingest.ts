@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { graphRequest } from "@/lib/meta/client";
@@ -103,6 +103,32 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
   const name = extractLeadName(fields);
   const email = extractLeadEmail(fields);
 
+  // Vinculación de forms (Ajustes → Servicios): el form del lead define el
+  // servicio y su plantilla de saludo; sin vínculo, saludo global.
+  const formId = detail.form_id ?? value.form_id ?? null;
+  let linkedService: { name: string; greetingTemplateId: string | null } | null =
+    null;
+  if (formId) {
+    const rows = await db
+      .select({
+        name: schema.service.name,
+        greetingTemplateId: schema.service.greetingTemplateId,
+      })
+      .from(schema.serviceForm)
+      .innerJoin(
+        schema.service,
+        eq(schema.service.id, schema.serviceForm.serviceId)
+      )
+      .where(
+        and(
+          eq(schema.serviceForm.organizationId, organizationId),
+          eq(schema.serviceForm.formId, formId)
+        )
+      )
+      .limit(1);
+    linkedService = rows[0] ?? null;
+  }
+
   const { contact, isNew } = await getOrCreateContact(
     organizationId,
     phone,
@@ -111,11 +137,10 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
 
   // Rastro de la campaña + correo del form (sin pisar datos del operador).
   const campaignParts = [
+    linkedService ? `Servicio: ${linkedService.name}` : null,
     detail.campaign_name ? `Campaña: ${detail.campaign_name}` : null,
     detail.ad_name ? `Anuncio: ${detail.ad_name}` : null,
-    detail.form_id ?? value.form_id
-      ? `Form: ${detail.form_id ?? value.form_id}`
-      : null,
+    formId ? `Form: ${formId}` : null,
   ].filter(Boolean);
   const campaignNote = `[Meta Ads] ${campaignParts.join(" · ") || "Lead de formulario"}`;
   await db
@@ -143,14 +168,19 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
   // Saludo automático SOLO para contactos nuevos (spec B: existente no se
   // vuelve a saludar). Sin plantilla configurada, el lead entra igual.
   if (isNew) {
-    const settings = await getLeadgenSettings(organizationId);
-    if (settings.greetingTemplateId) {
+    // Prioridad: plantilla del servicio vinculado al form → saludo global.
+    let greetingTemplateId = linkedService?.greetingTemplateId ?? null;
+    if (!greetingTemplateId) {
+      const settings = await getLeadgenSettings(organizationId);
+      greetingTemplateId = settings.greetingTemplateId;
+    }
+    if (greetingTemplateId) {
       try {
         const firstName = (name ?? "").split(/\s+/)[0] || "Hola";
         await sendTemplate({
           organizationId,
           conversationId: conversation.id,
-          templateId: settings.greetingTemplateId,
+          templateId: greetingTemplateId,
           variable: firstName,
         });
       } catch (err) {
@@ -161,7 +191,7 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
       }
     } else {
       console.warn(
-        "[leadgen] sin plantilla de saludo configurada (Ajustes → Plantillas): el lead entra sin mensaje"
+        `[leadgen] sin plantilla de saludo (ni por servicio ni global) para el form ${formId ?? "?"}: el lead entra sin mensaje`
       );
     }
   }

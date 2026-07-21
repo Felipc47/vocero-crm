@@ -18,6 +18,8 @@ const prefixes = {
   template: "tpl",
   testRun: "run",
   testCase: "case",
+  service: "svc",
+  serviceForm: "sform",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

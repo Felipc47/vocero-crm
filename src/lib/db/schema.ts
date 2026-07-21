@@ -378,6 +378,40 @@ export const template = pgTable(
   ]
 );
 
+/** Servicio del negocio (SEO, desarrollo web…): agrupa formularios de Meta
+ * Lead Ads y define la plantilla de saludo que recibe cada lead. */
+export const service = pgTable("service", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  /** Plantilla de saludo del servicio; null = usar el saludo global. */
+  greetingTemplateId: text("greeting_template_id").references(
+    () => template.id,
+    { onDelete: "set null" }
+  ),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/** Vinculación formulario de Meta → servicio (un form pertenece a UN servicio). */
+export const serviceForm = pgTable(
+  "service_form",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    serviceId: text("service_id")
+      .notNull()
+      .references(() => service.id, { onDelete: "cascade" }),
+    formId: text("form_id").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("service_form_org_form_uq").on(t.organizationId, t.formId)]
+);
+
 export const agentTestRun = pgTable(
   "agent_test_run",
   {
