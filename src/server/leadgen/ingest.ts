@@ -9,6 +9,11 @@ import {
   getOrCreateConversation,
 } from "@/server/inbox/ingest";
 import { onLeadActivity } from "@/server/inbox/lead-activity";
+import {
+  extractLeadEmail,
+  extractLeadName,
+  extractLeadPhone,
+} from "@/server/leadgen/fields";
 import { getLeadgenSettings } from "@/server/org-settings";
 import { sendTemplate } from "@/server/whatsapp/templates";
 import type { WebhookValue } from "@/server/inbox/webhook";
@@ -25,29 +30,12 @@ import type { WebhookValue } from "@/server/inbox/webhook";
  * page_id junto a las credenciales y enrutar por él).
  */
 
-type LeadgenField = { name?: string; values?: string[] };
-
 type LeadDetail = {
-  field_data?: LeadgenField[];
+  field_data?: { name?: string; values?: string[] }[];
   campaign_name?: string;
   ad_name?: string;
   form_id?: string;
 };
-
-function firstValue(fields: LeadgenField[], ...names: string[]): string | null {
-  for (const n of names) {
-    const f = fields.find((x) => x.name?.toLowerCase() === n);
-    const v = f?.values?.[0]?.trim();
-    if (v) return v;
-  }
-  return null;
-}
-
-/** Teléfono del form → dígitos con código de país (formato del CRM). */
-function normalizeLeadPhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15 ? digits : null;
-}
 
 export async function processLeadgenValue(value: WebhookValue): Promise<void> {
   const leadgenId = value.leadgen_id;
@@ -101,16 +89,19 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
   }
 
   const fields = detail.field_data ?? [];
-  const rawPhone = firstValue(fields, "phone_number", "telefono", "teléfono");
-  const phone = rawPhone ? normalizeLeadPhone(rawPhone) : null;
+  const phone = extractLeadPhone(fields);
   if (!phone) {
+    // Los nombres de campo van al log: cada formulario los nombra distinto y
+    // así el próximo fallo se diagnostica de una.
     console.warn(
-      `[leadgen] lead ${leadgenId} sin teléfono utilizable: se registra sin contacto`
+      `[leadgen] lead ${leadgenId} sin teléfono utilizable: se registra sin contacto (campos: ${
+        fields.map((f) => f.name ?? "?").join(", ") || "ninguno"
+      })`
     );
     return;
   }
-  const name = firstValue(fields, "full_name", "nombre", "name");
-  const email = firstValue(fields, "email", "correo");
+  const name = extractLeadName(fields);
+  const email = extractLeadEmail(fields);
 
   const { contact, isNew } = await getOrCreateContact(
     organizationId,
