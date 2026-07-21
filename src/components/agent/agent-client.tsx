@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 
 type Profile = {
   enabled: boolean;
@@ -29,6 +30,7 @@ type KbEntry = {
 };
 
 export function AgentClient() {
+  const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [aiConfigured, setAiConfigured] = useState(true);
   const [entries, setEntries] = useState<KbEntry[]>([]);
@@ -62,11 +64,23 @@ export function AgentClient() {
   }
 
   async function saveProfile(patch: Partial<Profile>) {
-    await fetch("/api/agent/profile", {
+    const res = await fetch("/api/agent/profile", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(patch),
     }).catch(() => null);
+    // Un rechazo del servidor (p. ej. texto demasiado largo) debe verse:
+    // antes se mostraba "Guardado ✓" y el refetch revertía lo escrito.
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      toast(
+        data?.error?.message ??
+          "No se pudo guardar: revisa la longitud de los campos"
+      );
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     void refetch();
