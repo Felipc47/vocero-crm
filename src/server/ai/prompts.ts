@@ -46,6 +46,9 @@ export function buildAgentSystemPrompt(input: {
   calendarAvailable?: boolean;
   /** 004: presente solo cuando calendarAvailable. */
   scheduling?: SchedulingContext;
+  /** Correo YA conocido del contacto (Lead Ads o capturado antes): si existe,
+   * el agente NO debe volver a pedirlo, solo confirmarlo. */
+  contactEmail?: string | null;
 }): string {
   const { profile } = input;
   const stageNames = input.stages.map((s) => s.name).join(" | ");
@@ -79,12 +82,17 @@ export function buildAgentSystemPrompt(input: {
       '- Si el cliente solo agradece, confirma o se despide ("gracias", "listo", "ok", "adiós") sin pedir nada nuevo → SIEMPRE despídete con UN cierre breve y cálido (ej. "¡Con mucho gusto! Cualquier cosa me escribes."); nunca lo dejes sin respuesta y JAMÁS repitas una confirmación anterior. Usa {"action":"none"} SOLO si ya te despediste y el cliente vuelve a agradecer.',
       ...(input.calendarAvailable
         ? [
-            "- Flujo OBLIGATORIO para agendar, en este orden: (1) pide el CORREO del cliente; (2) ofrece 2-3 horarios tomados de los rangos LIBRES y pregunta cuál le queda mejor; (3) SOLO cuando tengas el correo REAL y el cliente haya confirmado o propuesto una fecha y hora EN SUS PROPIAS PALABRAS, usa schedule_meeting con clientOk = la cita textual de ese mensaje. Si te falta el correo o la hora confirmada, tu única acción es reply pidiéndolos — JAMÁS llames schedule_meeting con datos incompletos ni placeholders como \"...\". El sistema envía la invitación con Google Meet al correo.",
+            input.contactEmail
+              ? `- YA TIENES el correo de este cliente: ${input.contactEmail}. NO se lo vuelvas a pedir: úsalo tal cual en schedule_meeting. Al ofrecer los horarios menciónalo en la misma frase para que pueda corregirlo si cambió (ej. "te envío la invitación a ${input.contactEmail}"). Solo pide un correo nuevo si el cliente dice que ese ya no sirve.`
+              : null,
+            "- Flujo OBLIGATORIO para agendar, en este orden: (1) pide el CORREO del cliente (SALVO que ya lo tengas, ver arriba); (2) ofrece 2-3 horarios tomados de los rangos LIBRES y pregunta cuál le queda mejor; (3) SOLO cuando tengas el correo REAL y el cliente haya confirmado o propuesto una fecha y hora EN SUS PROPIAS PALABRAS, usa schedule_meeting con clientOk = la cita textual de ese mensaje. Si te falta el correo o la hora confirmada, tu única acción es reply pidiéndolos — JAMÁS llames schedule_meeting con datos incompletos ni placeholders como \"...\". El sistema envía la invitación con Google Meet al correo.",
             "- schedule_meeting se usa UNA sola vez por reunión: si en el historial ya confirmaste el agendamiento, NO la vuelvas a usar salvo que el cliente pida cambiar la fecha u hora.",
           ]
         : []),
       "- JSON puro, sin markdown ni texto adicional.",
-    ].join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     // La agenda va AL FINAL del prompt a propósito: es lo que el modelo debe
     // tener más presente al responder cualquier mensaje que mencione fechas.
     input.calendarAvailable && input.scheduling

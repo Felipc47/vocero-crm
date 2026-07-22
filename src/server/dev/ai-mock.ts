@@ -80,9 +80,14 @@ export function aiMockCompletion(messages: InMessage[]): string {
     .filter((m) => m.role === "user")
     .map((m) => m.content)
     .join("\n");
+  // El correo puede venir YA conocido en el system prompt (ficha del contacto):
+  // en ese caso el modelo no debe pedirlo, solo usarlo.
+  const knownEmail = /YA TIENES el correo de este cliente: ([\w.+-]+@[\w-]+\.[\w.-]*\w)/i
+    .exec(system)?.[1];
   const emailMatch =
     lastUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) ??
-    allUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+    allUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) ??
+    (knownEmail ? [knownEmail] : null);
   // Respuesta corta con hora ("11 am", "a las 11", "11"): el cliente está
   // eligiendo entre los horarios ofrecidos.
   const bareTime = /^\s*(a\s+las\s+)?\d{1,2}(:\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?\s*$/i.test(

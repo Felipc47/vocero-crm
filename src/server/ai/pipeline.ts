@@ -402,6 +402,15 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     }
   }
 
+  // Correo ya conocido (Meta Lead Ads o capturado antes): sin esto el agente
+  // lo vuelve a pedir en cada reunión aunque ya esté en la ficha del contacto.
+  const contactRows = await db
+    .select({ email: schema.contact.email })
+    .from(schema.contact)
+    .where(eq(schema.contact.id, conversation.contactId))
+    .limit(1);
+  const knownEmail = contactRows[0]?.email?.trim() || null;
+
   const messages: ChatMessage[] = [
     {
       role: "system",
@@ -411,6 +420,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
         stages,
         calendarAvailable,
         scheduling,
+        contactEmail: knownEmail,
       }),
     },
     ...history
@@ -477,7 +487,8 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
         calendarAvailable,
         scheduling,
         calSettings,
-        inboundTexts
+        inboundTexts,
+        knownEmail
       );
       return;
     }
@@ -494,11 +505,21 @@ async function executeScheduleMeeting(
   calendarAvailable: boolean,
   scheduling: SchedulingContext | undefined,
   calSettings: CalendarSettings | undefined,
-  inboundTexts: string[]
+  inboundTexts: string[],
+  knownEmail: string | null
 ): Promise<void> {
   // Correo con formato real: el modelo a veces copia el placeholder "..."
   // del ejemplo cuando aún no lo tiene — se pide en vez de tumbar el turno.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email.trim())) {
+  // Red de seguridad: si el modelo manda un placeholder ("...") pero el
+  // contacto YA tiene correo en su ficha, se usa ese en vez de volver a
+  // pedirlo — pedirlo de nuevo es justo lo que molestaba al cliente.
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+  const email = isValidEmail(action.email)
+    ? action.email.trim()
+    : knownEmail && isValidEmail(knownEmail)
+      ? knownEmail.trim()
+      : null;
+  if (!email) {
     await deliverReply(
       conversation,
       "Para enviarte la invitación necesito tu correo electrónico. ¿Me lo compartes?",
@@ -590,7 +611,7 @@ async function executeScheduleMeeting(
     const event = await scheduleMeeting({
       organizationId: conversation.organizationId,
       contactId: conversation.contactId,
-      prospectEmail: action.email,
+      prospectEmail: email,
       startIso: start.toISOString(),
       title: action.title,
     });
@@ -614,7 +635,7 @@ async function executeScheduleMeeting(
     await deliverReply(
       conversation,
       action.reply ??
-        `¡Listo! Agendé la reunión para el ${when}. Te llegará la invitación al correo ${action.email}.${meetPart}`
+        `¡Listo! Agendé la reunión para el ${when}. Te llegará la invitación al correo ${email}.${meetPart}`
     );
   } catch (err) {
     // Choque de agenda: no es un error del sistema — se negocia otra hora
