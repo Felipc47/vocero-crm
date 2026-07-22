@@ -60,6 +60,9 @@ const createSchema = z.object({
   variableMode: z.enum(["none", "contact_name", "fixed"]).optional(),
   variableValue: z.string().trim().max(200).optional(),
   audience: audienceFilterSchema,
+  /** Confirmación explícita del operador para incluir contactos sin
+   * consentimiento registrado en una campaña de MARKETING (006). */
+  includeWithoutConsent: z.boolean().optional(),
 });
 
 export const POST = withAuth(async (session, req: Request) => {

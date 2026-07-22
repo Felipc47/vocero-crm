@@ -213,6 +213,11 @@ export function ContactsClient() {
                       {c.name}
                     </span>
                     {c.archivedAt && <Badge variant="secondary">Archivado</Badge>}
+                    {c.optedOutAt && (
+                      <Badge variant="destructive" title="Pidió no recibir más mensajes">
+                        Baja
+                      </Badge>
+                    )}
                   </div>
                   <p className="truncate text-[13px] text-mute">
                     <span className="font-bold text-foreground">
@@ -324,6 +329,34 @@ export function ContactsClient() {
               );
             }}
             onDelete={() => setDeleting(detail)}
+            onToggleOptOut={() => {
+              const next = !detail.optedOutAt;
+              void patch(detail.id, { optedOut: next });
+              // La ficha vive en su propio estado: se refleja al vuelo.
+              setDetail({
+                ...detail,
+                optedOutAt: next ? new Date().toISOString() : null,
+                optedOutReason: next ? "Marcada por el operador" : null,
+              });
+              toast(
+                next
+                  ? "Contacto dado de baja: no entrará en campañas"
+                  : "Baja retirada: volverá a entrar en campañas"
+              );
+            }}
+            onToggleConsent={() => {
+              const next = !detail.consentGrantedAt;
+              void patch(detail.id, { consentGranted: next });
+              setDetail({
+                ...detail,
+                consentGrantedAt: next ? new Date().toISOString() : null,
+              });
+              toast(
+                next
+                  ? "Consentimiento confirmado"
+                  : "Consentimiento retirado"
+              );
+            }}
           />
         </SlideOver>
       )}
@@ -469,19 +502,36 @@ function NewContactDialog({
 }
 
 /** Slide-over de detalles del contacto (botón del ojo en cada fila). */
+/** Origen del contacto en palabras del operador (006). */
+const CONSENT_SOURCE_LABEL: Record<string, string> = {
+  meta_lead_ads: "Formulario de Meta Ads",
+  inbound_message: "Escribió por WhatsApp",
+  manual: "Alta manual",
+  imported: "Lista importada",
+};
+
 function ContactDetailPanel({
   contact,
   onClose,
   onEdit,
   onToggleArchived,
   onDelete,
+  onToggleOptOut,
+  onToggleConsent,
 }: {
   contact: ContactDto;
   onClose: () => void;
   onEdit: () => void;
   onToggleArchived: () => void;
   onDelete: () => void;
+  onToggleOptOut: () => void;
+  onToggleConsent: () => void;
 }) {
+  // Consentimiento de origen: llenó un formulario o escribió él mismo.
+  const impliedConsent =
+    contact.consentSource === "meta_lead_ads" ||
+    contact.consentSource === "inbound_message";
+  const hasConsent = impliedConsent || Boolean(contact.consentGrantedAt);
   return (
     <>
       <header className="flex items-center gap-3 border-b px-[22px] py-[16px]">
@@ -490,6 +540,7 @@ function ContactDetailPanel({
           <p className="flex items-center gap-2 truncate font-display text-[17px] font-bold leading-tight">
             {contact.name}
             {contact.archivedAt && <Badge variant="secondary">Archivado</Badge>}
+            {contact.optedOutAt && <Badge variant="destructive">Baja</Badge>}
           </p>
           <p className="text-[13px] font-semibold text-mute">
             {formatPhone(contact.phone)}
@@ -533,6 +584,82 @@ function ContactDetailPanel({
               )}
             </dd>
           </div>
+          {/* Cumplimiento de la política de Meta (006): baja y consentimiento. */}
+          <div className="border-b pb-3">
+            <dt className="mb-2 text-[12px] font-bold uppercase tracking-wide text-mute">
+              Envío masivo
+            </dt>
+            <dd className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] text-mute">Origen</span>
+                <span className="text-[13px] font-bold">
+                  {CONSENT_SOURCE_LABEL[contact.consentSource ?? ""] ??
+                    "Sin registrar"}
+                </span>
+              </div>
+
+              {contact.optedOutAt ? (
+                <div className="rounded-[10px] border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-3">
+                  <p className="text-[13px] font-bold text-[color:var(--danger-fg)]">
+                    Pidió no recibir más mensajes
+                  </p>
+                  {contact.optedOutReason && (
+                    <p className="mt-1 text-[12px] text-[color:var(--danger-fg)] opacity-80">
+                      «{contact.optedOutReason}»
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-[12px] text-mute">
+                    Queda fuera de todas las campañas. Retira la baja solo si
+                    el cliente volvió a dar permiso.
+                  </p>
+                  <button
+                    onClick={onToggleOptOut}
+                    className="mt-2 rounded-[8px] border bg-surface px-3 py-1.5 text-[12.5px] font-bold transition-colors hover:bg-surface-2"
+                  >
+                    Retirar la baja
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[13px] text-mute">
+                      Consentimiento de marketing
+                    </span>
+                    <span
+                      className={
+                        hasConsent
+                          ? "text-[13px] font-bold text-[color:var(--success-fg)]"
+                          : "text-[13px] font-bold text-[color:var(--warning-fg)]"
+                      }
+                    >
+                      {impliedConsent
+                        ? "Sí, por su origen"
+                        : contact.consentGrantedAt
+                          ? "Sí, confirmado a mano"
+                          : "Sin registrar"}
+                    </span>
+                  </div>
+                  {!impliedConsent && (
+                    <button
+                      onClick={onToggleConsent}
+                      className="rounded-[8px] border bg-surface px-3 py-1.5 text-[12.5px] font-bold transition-colors hover:bg-surface-2"
+                    >
+                      {contact.consentGrantedAt
+                        ? "Quitar el consentimiento"
+                        : "Confirmar que dio permiso"}
+                    </button>
+                  )}
+                  <button
+                    onClick={onToggleOptOut}
+                    className="block text-[12.5px] font-semibold text-mute underline underline-offset-2 hover:text-foreground"
+                  >
+                    Dar de baja a este contacto
+                  </button>
+                </>
+              )}
+            </dd>
+          </div>
+
           <div>
             <dt className="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-mute">
               Notas

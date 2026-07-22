@@ -64,7 +64,20 @@ export function CampaignsClient() {
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [contactIds, setContactIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [preview, setPreview] = useState<number | null>(null);
+  type Preview = {
+    total: number;
+    eligible: number;
+    withoutConsent: number;
+    isMarketing: boolean;
+    messagingLimit: {
+      tier: string | null;
+      cap: number | null;
+      exceeds: boolean;
+      overflow: number;
+    };
+  };
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [includeWithoutConsent, setIncludeWithoutConsent] = useState(false);
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -144,17 +157,20 @@ export function CampaignsClient() {
       const res = await fetch("/api/campaigns/preview", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ audience: buildAudience() }),
+        body: JSON.stringify({
+          audience: buildAudience(),
+          templateId: templateId || undefined,
+        }),
       }).catch(() => null);
       if (!res?.ok || cancelled) return;
-      const data = (await res.json()) as { total: number };
-      if (!cancelled) setPreview(data.total);
+      const data = (await res.json()) as Preview;
+      if (!cancelled) setPreview(data);
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, stageIds, serviceIds, contactIds, audienceReady]);
+  }, [mode, stageIds, serviceIds, contactIds, audienceReady, templateId]);
 
   async function create() {
     setCreating(true);
@@ -168,6 +184,7 @@ export function CampaignsClient() {
         variableMode: needsVariable ? variableMode : "none",
         variableValue: variableValue.trim() || undefined,
         audience: buildAudience(),
+        includeWithoutConsent,
       }),
     }).catch(() => null);
     setCreating(false);
@@ -387,12 +404,57 @@ export function CampaignsClient() {
             </div>
           )}
 
+          {/* Avisos de cumplimiento (006): consentimiento y tope del número. */}
+          {preview && preview.withoutConsent > 0 && (
+            <div className="rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-3.5 py-3">
+              <p className="text-[13px] font-bold text-[color:var(--warning-fg)]">
+                {preview.withoutConsent} contacto(s) quedan fuera por falta de
+                consentimiento
+              </p>
+              <p className="mt-1 text-[12.5px] text-[color:var(--warning-fg)] opacity-90">
+                Esta plantilla es de MARKETING y Meta exige permiso previo. Se
+                excluyen los contactos de alta manual o importados que no lo
+                tengan confirmado en su ficha.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-[12.5px] font-semibold text-[color:var(--warning-fg)]">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={includeWithoutConsent}
+                  onChange={(e) => setIncludeWithoutConsent(e.target.checked)}
+                />
+                Incluirlos de todos modos — confirmo que tengo su permiso
+              </label>
+            </div>
+          )}
+
+          {preview?.messagingLimit.exceeds && (
+            <div className="rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-3.5 py-3">
+              <p className="text-[13px] font-bold text-[color:var(--warning-fg)]">
+                La audiencia supera el límite de tu número
+              </p>
+              <p className="mt-1 text-[12.5px] text-[color:var(--warning-fg)] opacity-90">
+                Meta te permite iniciar{" "}
+                {preview.messagingLimit.cap?.toLocaleString("es-CO")}{" "}
+                conversaciones nuevas por 24 h
+                {preview.messagingLimit.tier
+                  ? ` (${preview.messagingLimit.tier})`
+                  : ""}
+                . Sobran {preview.messagingLimit.overflow.toLocaleString("es-CO")}
+                : esos envíos serán rechazados. Divide la campaña en varios
+                días o sube de escalón enviando a más contactos que respondan.
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-[13px] text-mute">
               <Users className="h-4 w-4" strokeWidth={1.9} />
               {preview === null
                 ? "Elige una audiencia para ver el alcance"
-                : `${preview} destinatario(s)`}
+                : includeWithoutConsent
+                  ? `${preview.total} destinatario(s)`
+                  : `${preview.eligible} destinatario(s)`}
             </span>
             <Button
               onClick={() => void create()}
@@ -401,7 +463,8 @@ export function CampaignsClient() {
                 !name.trim() ||
                 !templateId ||
                 !audienceReady ||
-                preview === 0
+                preview === null ||
+                (includeWithoutConsent ? preview.total : preview.eligible) === 0
               }
             >
               <Send className="h-4 w-4" strokeWidth={1.9} />

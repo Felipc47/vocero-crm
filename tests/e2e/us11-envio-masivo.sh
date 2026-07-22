@@ -36,6 +36,17 @@ wait_status() {
 }
 detalle() { curl -s -b "$JAR" "$BASE/api/campaigns/$1"; }
 
+# Desde 006, las plantillas de MARKETING exigen consentimiento y estos
+# contactos son de alta manual. Este guion prueba el ENVÍO, no la política
+# (eso es us12), así que se registra el permiso de todos.
+consentir_todos() {
+  for ID in $(curl -s -b "$JAR" "$BASE/api/contacts" | tr '{' '\n' \
+      | sed -n 's/.*"id":"\(ct_[^"]*\)".*/\1/p'); do
+    curl -s -b "$JAR" -X PATCH "$BASE/api/contacts/$ID" \
+      -H 'content-type: application/json' -d '{"consentGranted":true}' > /dev/null
+  done
+}
+
 echo "── 0. Registro y conexión del número (mock)"
 curl -s -c "$JAR" -X POST "$BASE/api/auth/sign-up/email" -H 'content-type: application/json' \
   -d "{\"name\":\"Tester\",\"email\":\"$EMAIL\",\"password\":\"Password123!\"}" > /dev/null
@@ -61,6 +72,7 @@ for i in 1 2 3; do
   curl -s -b "$JAR" -X POST "$BASE/api/contacts" -H 'content-type: application/json' \
     -d "{\"name\":\"Cliente $i\",\"phone\":\"57300111000$i\"}" > /dev/null
 done
+consentir_todos
 CT=$(curl -s -b "$JAR" "$BASE/api/contacts")
 check "3 contactos creados" "$([ "$(echo "$CT" | tr '{' '\n' | grep -c '"phone":"5730011100')" -eq 3 ] && echo true || echo false)" "$CT"
 
@@ -120,6 +132,7 @@ check "rechaza plantillas sin aprobar" "$(has "$NOAP" 'aprobadas')" "$NOAP"
 echo "── 9. Camino infeliz B: un destinatario falla, la campaña NO se cuelga"
 curl -s -b "$JAR" -X POST "$BASE/api/contacts" -H 'content-type: application/json' \
   -d '{"name":"Cliente Caido","phone":"573009998877"}' > /dev/null
+consentir_todos
 CMP2=$(curl -s -b "$JAR" -X POST "$BASE/api/campaigns" -H 'content-type: application/json' \
   -d "{\"name\":\"Promo con fallo\",\"templateId\":\"$TPL_ID\",\"variableMode\":\"contact_name\",\"audience\":{\"mode\":\"all\"}}")
 CMP2_ID=$(echo "$CMP2" | sed -n 's/.*"id":"\(cmp_[^"]*\)".*/\1/p')
@@ -144,6 +157,7 @@ for i in 5 6; do
   curl -s -b "$JAR" -X POST "$BASE/api/contacts" -H 'content-type: application/json' \
     -d "{\"name\":\"Cliente $i\",\"phone\":\"57300111000$i\"}" > /dev/null
 done
+consentir_todos
 CMP3=$(curl -s -b "$JAR" -X POST "$BASE/api/campaigns" -H 'content-type: application/json' \
   -d "{\"name\":\"Promo token\",\"templateId\":\"$TPL_ID\",\"variableMode\":\"contact_name\",\"audience\":{\"mode\":\"all\"}}")
 CMP3_ID=$(echo "$CMP3" | sed -n 's/.*"id":"\(cmp_[^"]*\)".*/\1/p')

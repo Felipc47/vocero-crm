@@ -13,6 +13,11 @@ export function serializeContact(c: typeof schema.contact.$inferSelect) {
     aiProfile: parseStoredProfile(c.aiProfile),
     aiProfileAt: c.aiProfileAt?.toISOString() ?? null,
     archivedAt: c.archivedAt?.toISOString() ?? null,
+    // Cumplimiento de la política de Meta (006).
+    optedOutAt: c.optedOutAt?.toISOString() ?? null,
+    optedOutReason: c.optedOutReason,
+    consentSource: c.consentSource,
+    consentGrantedAt: c.consentGrantedAt?.toISOString() ?? null,
   };
 }
 

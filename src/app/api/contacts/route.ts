@@ -77,6 +77,9 @@ export const POST = withAuth(async (session, req: Request) => {
       phone: body.data.phone,
       email: body.data.email ?? null,
       notes: body.data.notes ?? null,
+      // Alta a mano: sin consentimiento implícito hasta que el operador lo
+      // confirme en la ficha (006).
+      consentSource: "manual",
     })
     .onConflictDoNothing({
       target: [schema.contact.organizationId, schema.contact.phone],

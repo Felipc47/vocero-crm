@@ -121,6 +121,20 @@ export const contact = pgTable(
      * `notes`, que sigue siendo el campo del operador. JSON de `LeadProfile`. */
     aiProfile: text("ai_profile"),
     aiProfileAt: timestamp("ai_profile_at"),
+    /** Baja solicitada por el contacto (006). Política de Meta: hay que
+     * respetar la petición de dejar de recibir mensajes. Se marca sola al
+     * detectar la solicitud en un entrante; SOLO se revierte a mano. */
+    optedOutAt: timestamp("opted_out_at"),
+    optedOutReason: text("opted_out_reason"),
+    /** De dónde salió el contacto — determina si hay consentimiento implícito
+     * para mensajes de MARKETING (Lead Ads y entrantes sí; alta manual e
+     * importación no, hasta que el operador lo confirme). */
+    consentSource: text("consent_source", {
+      enum: ["meta_lead_ads", "inbound_message", "manual", "imported"],
+    }),
+    /** Consentimiento confirmado a mano por el operador (el ~5% que llega por
+     * otros medios y sí dio permiso). */
+    consentGrantedAt: timestamp("consent_granted_at"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

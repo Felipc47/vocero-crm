@@ -6,6 +6,7 @@ import { getCredentialsByPhoneNumberId } from "@/server/whatsapp/credentials";
 import type { WebhookValue } from "@/server/inbox/webhook";
 import { applyStatusUpdate } from "@/server/inbox/status";
 import { onLeadActivity } from "@/server/inbox/lead-activity";
+import { detectOptOut } from "@/server/inbox/opt-out";
 import { translateStoredError } from "@/server/whatsapp/delivery-errors";
 import { maybeRunAgentTurn } from "@/server/ai/trigger";
 
@@ -24,7 +25,10 @@ const SUPPORTED_TYPES = new Set([
 export async function getOrCreateContact(
   organizationId: string,
   phone: string,
-  name?: string | null
+  name?: string | null,
+  /** Origen del consentimiento cuando el contacto se crea aquí (006). Por
+   * defecto `inbound_message`: llegó porque ESCRIBIÓ al negocio. */
+  consentSource: "meta_lead_ads" | "inbound_message" = "inbound_message"
 ) {
   const db = getDb();
   const inserted = await db
@@ -34,6 +38,7 @@ export async function getOrCreateContact(
       organizationId,
       phone,
       name: name?.trim() || phone,
+      consentSource,
     })
     .onConflictDoNothing({
       target: [schema.contact.organizationId, schema.contact.phone],
@@ -189,6 +194,22 @@ export async function ingestInboundMessage(input: {
     .where(eq(schema.conversation.id, conversation.id));
 
   await onLeadActivity(organizationId, contact.id, waTimestamp);
+
+  // Política de Meta (006): si el contacto pide la baja, se respeta al vuelo.
+  // Solo se evalúa texto, y solo si no estaba ya dado de baja.
+  if (input.type === "text" && !contact.optedOutAt) {
+    const reason = detectOptOut(input.text);
+    if (reason) {
+      await db
+        .update(schema.contact)
+        .set({
+          optedOutAt: waTimestamp,
+          optedOutReason: reason,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.contact.id, contact.id));
+    }
+  }
 
   publish(organizationId, {
     type: "message.new",

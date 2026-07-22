@@ -132,7 +132,9 @@ export async function processLeadgenValue(value: WebhookValue): Promise<void> {
   const { contact, isNew } = await getOrCreateContact(
     organizationId,
     phone,
-    name
+    name,
+    // Llenó un formulario de Meta Lead Ads: consentimiento de origen (006).
+    "meta_lead_ads"
   );
 
   // Rastro de la campaña + correo del form (sin pisar datos del operador).

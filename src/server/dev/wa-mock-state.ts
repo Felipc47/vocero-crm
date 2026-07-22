@@ -30,8 +30,11 @@ type WaMockState = {
    * ejercer el camino infeliz (destinatario que falla y luego se reintenta)
    * sin depender de la disponibilidad real de Meta. */
   failNextSends: number;
-  /** Cómo falla: `delivery` (culpa del destinatario) o `auth` (token caído). */
-  failNextMode: "delivery" | "auth";
+  /** Cómo falla: `delivery` (culpa del destinatario), `auth` (token caído) o
+   * `limit` (el número alcanzó el límite de envíos de Meta). */
+  failNextMode: "delivery" | "auth" | "limit";
+  /** Escalón de mensajería que reporta el número (006). */
+  messagingLimitTier: string;
 };
 
 const globalForMock = globalThis as unknown as { __waMockState?: WaMockState };
@@ -51,6 +54,7 @@ export function getWaMockState(): WaMockState {
       counter: seedCounter(),
       failNextSends: 0,
       failNextMode: "delivery",
+      messagingLimitTier: "TIER_1K",
     };
   }
   return globalForMock.__waMockState;
@@ -63,6 +67,7 @@ export function resetWaMockState(): void {
     counter: seedCounter(),
     failNextSends: 0,
     failNextMode: "delivery",
+    messagingLimitTier: "TIER_1K",
   };
 }
 

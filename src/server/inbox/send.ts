@@ -21,10 +21,19 @@ export class SendError extends Error {
     | "meta_error"
     | "meta_unavailable";
 
-  constructor(code: SendError["code"], message: string) {
+  /** Código numérico de Meta cuando lo hay: distingue un fallo del
+   * destinatario de uno que afecta a TODOS los envíos (006). */
+  metaCode: number | null;
+
+  constructor(
+    code: SendError["code"],
+    message: string,
+    metaCode?: number | null
+  ) {
     super(message);
     this.name = "SendError";
     this.code = code;
+    this.metaCode = metaCode ?? null;
   }
 }
 
@@ -148,9 +157,13 @@ export async function callGraphSend(
         );
       }
       if (err.status === 0 || err.status >= 500) {
-        throw new SendError("meta_unavailable", "Meta no está disponible ahora");
+        throw new SendError(
+          "meta_unavailable",
+          "Meta no está disponible ahora",
+          err.code
+        );
       }
-      throw new SendError("meta_error", err.message);
+      throw new SendError("meta_error", err.message, err.code);
     }
     throw err;
   }

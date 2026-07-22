@@ -85,11 +85,13 @@ export async function GET(req: Request, ctx: Params) {
     });
   }
 
-  // GET {phoneNumberId}?fields=... → validación del wizard
+  // GET {phoneNumberId}?fields=... → validación del wizard y límite de
+  // mensajería (006; el escalón se fija desde /api/dev/wa-mock/tier).
   if (path.length === 1) {
     return Response.json({
       display_phone_number: "+52 55 0000 0000",
       verified_name: "Número de prueba Seomos",
+      messaging_limit_tier: getWaMockState().messagingLimitTier,
       id: path[0],
     });
   }
@@ -116,6 +118,20 @@ export async function POST(req: Request, ctx: Params) {
       // `auth`: el token cayó a mitad del envío (fallo del canal, no del
       // destinatario). `delivery`: Meta rechaza ese destinatario concreto.
       if (state.failNextMode === "auth") return invalidTokenResponse();
+      if (state.failNextMode === "limit") {
+        // 131048: el número alcanzó el límite por reportes de spam. Afecta a
+        // TODOS los envíos, no solo a este destinatario.
+        return Response.json(
+          {
+            error: {
+              message: "(#131048) Spam rate limit hit",
+              type: "WhatsAppBusinessApiError",
+              code: 131048,
+            },
+          },
+          { status: 400 }
+        );
+      }
       return Response.json(
         {
           error: {

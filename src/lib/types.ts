@@ -55,6 +55,11 @@ export type ContactDto = {
   aiProfile?: LeadProfileDto | null;
   aiProfileAt?: string | null;
   archivedAt: string | null;
+  /** Cumplimiento de la política de Meta (006). */
+  optedOutAt?: string | null;
+  optedOutReason?: string | null;
+  consentSource?: "meta_lead_ads" | "inbound_message" | "manual" | "imported" | null;
+  consentGrantedAt?: string | null;
   /** Etapa del lead del contacto (solo lectura; listado de Contactos). */
   stage?: {
     name: string;

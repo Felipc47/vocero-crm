@@ -32,6 +32,7 @@ externas: el trabajo en segundo plano (agente, Laboratorio) es in-process.
 | Campos/tablas | `src/lib/db/schema.ts` → `pnpm db:generate` → migración nueva en `drizzle/` |
 | La ingesta/envío de mensajes | `src/server/inbox/` (ingest idempotente, send con guard de sandbox, ventana 24h) |
 | El envío masivo (campañas) | `src/server/campaigns/` (audiencia + despachador ~1 msg/s, `CAMPAIGN_RATE_MS`) |
+| Las bajas y el consentimiento | `src/server/inbox/opt-out.ts` (detector conservador) + `consent_source` en `contact` + `src/server/whatsapp/messaging-limit.ts` |
 | UI | `src/components/` + `src/app/(app)/` |
 
 Los mocks del entorno de pruebas viven en `src/app/api/dev/` (wa-mock +

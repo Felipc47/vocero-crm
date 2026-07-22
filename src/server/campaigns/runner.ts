@@ -6,6 +6,7 @@ import { publish } from "@/server/events/bus";
 import { getOrCreateConversation } from "@/server/inbox/ingest";
 import { countVariables, sendTemplate } from "@/server/whatsapp/templates";
 import {
+  hasMarketingConsent,
   resolveAudience,
   type AudienceFilter,
 } from "@/server/campaigns/audience";
@@ -44,6 +45,8 @@ type CreateInput = {
   variableMode: "none" | "contact_name" | "fixed";
   variableValue?: string | null;
   audience: AudienceFilter;
+  /** El operador confirma que tiene permiso de los contactos sin registro. */
+  includeWithoutConsent?: boolean;
 };
 
 /** Crea la campaña en `draft` y materializa sus destinatarios. */
@@ -86,11 +89,25 @@ export async function createCampaign(
     throw new CampaignError("invalid", "Escribe el valor fijo de {{1}}");
   }
 
-  const contacts = await resolveAudience(organizationId, input.audience);
+  let contacts = await resolveAudience(organizationId, input.audience);
+
+  // Política de Meta (006): las plantillas de MARKETING exigen consentimiento.
+  // Se excluye por defecto a quien no lo tenga; el operador puede incluirlos
+  // de forma explícita, asumiendo él la responsabilidad del permiso.
+  const isMarketing = template.category.toUpperCase() === "MARKETING";
+  let excludedWithoutConsent = 0;
+  if (isMarketing && !input.includeWithoutConsent) {
+    const before = contacts.length;
+    contacts = contacts.filter(hasMarketingConsent);
+    excludedWithoutConsent = before - contacts.length;
+  }
+
   if (contacts.length === 0) {
     throw new CampaignError(
       "invalid",
-      "La audiencia seleccionada no tiene contactos"
+      excludedWithoutConsent > 0
+        ? `Ningún contacto de esa audiencia tiene consentimiento registrado para mensajes de marketing (${excludedWithoutConsent} excluidos)`
+        : "La audiencia seleccionada no tiene contactos"
     );
   }
 
@@ -429,13 +446,37 @@ async function publishProgress(
   });
 }
 
+/**
+ * Códigos de Meta que afectan a TODA la campaña, no a un destinatario: si
+ * seguimos, los mil pendientes fallarían igual. Límite de spam alcanzado,
+ * cuenta restringida o sin facturación, plantilla pausada por calidad,
+ * mantenimiento y límites de tasa de la API.
+ */
+const CAMPAIGN_STOPPING_META_CODES = new Set([
+  4, // límite de tasa de la aplicación
+  80007, // límite de tasa de la cuenta
+  130429, // límite de tasa de mensajería
+  131042, // problema de facturación
+  131031, // cuenta restringida por políticas
+  131048, // envíos pausados por reportes de spam
+  131057, // cuenta en mantenimiento
+  132015, // plantilla pausada por baja calidad
+  132016, // plantilla deshabilitada por baja calidad
+]);
+
 /** ¿El fallo es del canal (no del destinatario)? Entonces pausar, no quemar. */
 function isChannelFailure(err: unknown): boolean {
-  const code = (err as { code?: string } | null)?.code;
+  const e = err as { code?: string; metaCode?: number | null } | null;
+  if (
+    e?.code === "not_connected" ||
+    e?.code === "reconnect_required" ||
+    e?.code === "meta_unavailable"
+  ) {
+    return true;
+  }
   return (
-    code === "not_connected" ||
-    code === "reconnect_required" ||
-    code === "meta_unavailable"
+    typeof e?.metaCode === "number" &&
+    CAMPAIGN_STOPPING_META_CODES.has(e.metaCode)
   );
 }
 

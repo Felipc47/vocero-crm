@@ -30,9 +30,34 @@ export const audienceFilterSchema = z.discriminatedUnion("mode", [
 
 export type AudienceFilter = z.infer<typeof audienceFilterSchema>;
 
-export type AudienceContact = { id: string; name: string; phone: string };
+export type AudienceContact = {
+  id: string;
+  name: string;
+  phone: string;
+  consentSource: string | null;
+  consentGrantedAt: Date | null;
+};
 
-/** Contactos destinatarios del filtro, deduplicados por id y ordenados. */
+/**
+ * ¿Hay consentimiento para mensajes de MARKETING? Lo hay si el contacto llegó
+ * por un canal que lo implica (llenó un formulario de Lead Ads o escribió él
+ * mismo) o si el operador lo confirmó a mano en la ficha.
+ */
+export function hasMarketingConsent(c: AudienceContact): boolean {
+  return (
+    c.consentGrantedAt !== null ||
+    c.consentSource === "meta_lead_ads" ||
+    c.consentSource === "inbound_message"
+  );
+}
+
+/**
+ * Contactos destinatarios del filtro, deduplicados por id y ordenados.
+ *
+ * Excluye SIEMPRE a quien pidió la baja (política de Meta, 006) — en los
+ * cuatro modos, incluida la selección manual: el operador no puede saltarse
+ * una baja marcándolo a mano.
+ */
 export async function resolveAudience(
   organizationId: string,
   filter: AudienceFilter
@@ -42,8 +67,13 @@ export async function resolveAudience(
     id: schema.contact.id,
     name: schema.contact.name,
     phone: schema.contact.phone,
+    consentSource: schema.contact.consentSource,
+    consentGrantedAt: schema.contact.consentGrantedAt,
   };
-  const notArchived = isNull(schema.contact.archivedAt);
+  const elegible = and(
+    isNull(schema.contact.archivedAt),
+    isNull(schema.contact.optedOutAt)
+  )!;
 
   let rows: AudienceContact[];
 
@@ -53,7 +83,7 @@ export async function resolveAudience(
         .select(columns)
         .from(schema.contact)
         .where(
-          scoped(schema.contact.organizationId, organizationId, notArchived)
+          scoped(schema.contact.organizationId, organizationId, elegible)
         )
         .orderBy(asc(schema.contact.name));
       break;
@@ -66,7 +96,7 @@ export async function resolveAudience(
           scoped(
             schema.contact.organizationId,
             organizationId,
-            notArchived,
+            elegible,
             inArray(schema.contact.id, filter.contactIds)
           )
         )
@@ -82,7 +112,7 @@ export async function resolveAudience(
           scoped(
             schema.contact.organizationId,
             organizationId,
-            notArchived,
+            elegible,
             eq(schema.lead.organizationId, organizationId),
             inArray(schema.lead.stageId, filter.stageIds)
           )
@@ -110,7 +140,7 @@ export async function resolveAudience(
           scoped(
             schema.contact.organizationId,
             organizationId,
-            notArchived,
+            elegible,
             eq(schema.leadgenEvent.organizationId, organizationId),
             inArray(schema.serviceForm.serviceId, filter.serviceIds)
           )

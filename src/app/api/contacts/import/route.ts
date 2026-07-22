@@ -106,6 +106,8 @@ export const POST = withAuth(async (session, req: Request) => {
         phone,
         email: record.email || null,
         notes: record.notes || null,
+        // Lista importada: sin consentimiento registrado (006).
+        consentSource: "imported",
       })
       .onConflictDoNothing({
         target: [schema.contact.organizationId, schema.contact.phone],

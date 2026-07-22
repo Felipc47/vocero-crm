@@ -37,6 +37,11 @@ const patchSchema = z.object({
   email: z.string().trim().email().max(254).nullable().optional(),
   notes: z.string().max(4000).nullable().optional(),
   archived: z.boolean().optional(),
+  /** Baja del contacto (006). Se puede QUITAR a mano (false) cuando el
+   * cliente vuelve a dar permiso, y marcar a mano si lo pidió por otra vía. */
+  optedOut: z.boolean().optional(),
+  /** Consentimiento confirmado por el operador para mensajes de marketing. */
+  consentGranted: z.boolean().optional(),
 });
 
 export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
@@ -50,6 +55,15 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   if (body.data.notes !== undefined) set.notes = body.data.notes;
   if (body.data.archived !== undefined) {
     set.archivedAt = body.data.archived ? new Date() : null;
+  }
+  if (body.data.optedOut !== undefined) {
+    set.optedOutAt = body.data.optedOut ? new Date() : null;
+    set.optedOutReason = body.data.optedOut
+      ? "Marcada por el operador"
+      : null;
+  }
+  if (body.data.consentGranted !== undefined) {
+    set.consentGrantedAt = body.data.consentGranted ? new Date() : null;
   }
 
   const db = getDb();
