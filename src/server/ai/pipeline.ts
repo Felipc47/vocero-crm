@@ -13,6 +13,7 @@ import {
   REPEAT_WINDOW_MIN,
 } from "@/server/ai/repeat-guard";
 import { quoteAppearsInInbound } from "@/server/ai/schedule-confirm";
+import { refreshLeadProfile } from "@/server/ai/lead-profile";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
 import {
@@ -246,6 +247,13 @@ async function executeTurn(conversationId: string): Promise<void> {
     await runAgentTurn(conversationId);
   } catch (err) {
     console.error("[agente] turno falló:", err);
+  }
+  try {
+    // Ficha del lead SIEMPRE, aunque el agente esté apagado o haya handoff:
+    // el comercial que atiende a mano también necesita el contexto.
+    await refreshProfileForConversation(conversationId);
+  } catch (err) {
+    console.error("[ficha-lead] refresco falló:", err);
   } finally {
     entry.running = false;
     if (entry.pending) {
@@ -255,6 +263,46 @@ async function executeTurn(conversationId: string): Promise<void> {
       map.delete(conversationId);
     }
   }
+}
+
+/**
+ * Carga la conversación y su historial y recalcula la ficha del lead.
+ * El sandbox del Laboratorio queda fuera: una evaluación no debe reescribir
+ * la ficha de un contacto real ni gastar tokens del proveedor.
+ */
+async function refreshProfileForConversation(
+  conversationId: string
+): Promise<void> {
+  if (!isAiConfigured()) return;
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.conversation)
+    .where(eq(schema.conversation.id, conversationId))
+    .limit(1);
+  const conversation = rows[0];
+  if (!conversation || conversation.isTest) return;
+
+  const history = await db
+    .select({
+      direction: schema.message.direction,
+      text: schema.message.text,
+    })
+    .from(schema.message)
+    .where(eq(schema.message.conversationId, conversationId))
+    .orderBy(desc(schema.message.createdAt))
+    .limit(30);
+  history.reverse();
+
+  await refreshLeadProfile({
+    organizationId: conversation.organizationId,
+    contactId: conversation.contactId,
+    conversationId,
+    history: history.map((m) => ({
+      direction: m.direction as "in" | "out",
+      text: m.text,
+    })),
+  });
 }
 
 /**
@@ -536,6 +584,18 @@ async function executeScheduleMeeting(
       startIso: start.toISOString(),
       title: action.title,
     });
+    // El lead pasa a "Agendado": el tablero refleja que ya hay reunión.
+    const moved = await moveLeadToScheduledStage(
+      conversation.organizationId,
+      conversation.contactId
+    );
+    if (moved) {
+      publish(conversation.organizationId, {
+        type: "conversation.updated",
+        data: { conversation: { id: conversation.id } },
+      });
+    }
+
     // Siempre en la zona del negocio (el contenedor corre en UTC).
     const when = formatInTz(start, calSettings.timezone);
     const meetPart = event.meetLink
@@ -687,6 +747,33 @@ async function moveLeadToStage(
     .update(schema.lead)
     .set({ stageId, updatedAt: new Date(), lastActivityAt: new Date() })
     .where(eq(schema.lead.contactId, contactId));
+}
+
+/**
+ * Mueve el lead a la etapa `scheduled` ("Agendado") al confirmarse la reunión.
+ * Silencioso a propósito: si el operador borró o renombró la etapa, el
+ * agendamiento NO se cae — la reunión ya está creada, el tablero es secundario.
+ */
+async function moveLeadToScheduledStage(
+  organizationId: string,
+  contactId: string
+): Promise<boolean> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: schema.pipelineStage.id })
+    .from(schema.pipelineStage)
+    .where(
+      and(
+        eq(schema.pipelineStage.organizationId, organizationId),
+        eq(schema.pipelineStage.kind, "scheduled")
+      )
+    )
+    .orderBy(asc(schema.pipelineStage.position))
+    .limit(1);
+  const stage = rows[0];
+  if (!stage) return false;
+  await moveLeadToStage(organizationId, contactId, stage.id);
+  return true;
 }
 
 async function appendLeadNote(

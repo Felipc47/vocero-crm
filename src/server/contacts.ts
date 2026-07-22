@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
+import { parseStoredProfile } from "@/server/ai/lead-profile";
 
 export function serializeContact(c: typeof schema.contact.$inferSelect) {
   return {
@@ -9,6 +10,8 @@ export function serializeContact(c: typeof schema.contact.$inferSelect) {
     phone: c.phone,
     email: c.email,
     notes: c.notes,
+    aiProfile: parseStoredProfile(c.aiProfile),
+    aiProfileAt: c.aiProfileAt?.toISOString() ?? null,
     archivedAt: c.archivedAt?.toISOString() ?? null,
   };
 }

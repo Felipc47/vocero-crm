@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus, Check, Pencil, RotateCcw, Sparkles, Trash2, UserRound, X } from "lucide-react";
-import type { ConversationDto, StageDto } from "@/lib/types";
+import type { ConversationDto, LeadProfileDto, StageDto } from "@/lib/types";
 import { cn, formatPhone } from "@/lib/utils";
 import { stageColor, stageTint } from "@/lib/stage-colors";
 import { ContactAvatar } from "@/components/avatar";
@@ -51,6 +51,8 @@ export function ContactPanel({
   const [scheduling, setScheduling] = useState(false);
   const [notes, setNotes] = useState("");
   const [notesLoaded, setNotesLoaded] = useState(false);
+  // Ficha del lead extraída por IA (se regenera sola tras cada mensaje).
+  const [aiProfile, setAiProfile] = useState<LeadProfileDto | null>(null);
   const [savingNotes, setSavingNotes] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState<"delete" | "reset" | null>(null);
@@ -79,6 +81,7 @@ export function ContactPanel({
     if (detail) {
       setNotes(detail.contact?.notes ?? "");
       setContactEmail(detail.contact?.email ?? null);
+      setAiProfile(detail.contact?.aiProfile ?? null);
       setCurrentStageId(detail.stage?.id ?? null);
       setLeadId(detail.lead?.id ?? null);
     }
@@ -97,6 +100,7 @@ export function ContactPanel({
     ]).catch(() => [null, null]);
     if (detail) {
       setContactEmail(detail.contact?.email ?? null);
+      setAiProfile(detail.contact?.aiProfile ?? null);
       setCurrentStageId(detail.stage?.id ?? null);
       setLeadId(detail.lead?.id ?? null);
     }
@@ -402,6 +406,48 @@ export function ContactPanel({
               </>
             )}
 
+            {/* Ficha del lead (IA): se regenera tras cada mensaje del cliente */}
+            {aiProfile && (
+              <>
+                <p className="mb-2.5 mt-6 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[.6px] text-faint">
+                  <Sparkles className="h-3 w-3" strokeWidth={2.2} />
+                  Ficha del lead (IA)
+                </p>
+                <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3.5 text-[13px]">
+                  {aiProfile.summary && (
+                    <p className="leading-snug text-text-2">{aiProfile.summary}</p>
+                  )}
+                  {aiProfile.contactName && (
+                    <ProfileRow label="Se llama" value={aiProfile.contactName} />
+                  )}
+                  {aiProfile.businessName && (
+                    <ProfileRow label="Negocio" value={aiProfile.businessName} />
+                  )}
+                  {aiProfile.businessType && (
+                    <ProfileRow label="A qué se dedica" value={aiProfile.businessType} />
+                  )}
+                  {aiProfile.needs.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-bold text-faint">Necesita</p>
+                      <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-text-2">
+                        {aiProfile.needs.map((n, i) => (
+                          <li key={i} className="leading-snug">
+                            {n}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {aiProfile.budget && (
+                    <ProfileRow label="Presupuesto" value={aiProfile.budget} />
+                  )}
+                  {aiProfile.timeline && (
+                    <ProfileRow label="Plazo" value={aiProfile.timeline} />
+                  )}
+                </div>
+              </>
+            )}
+
             {/* Notas */}
             <p className="mb-2.5 mt-6 text-[11px] font-extrabold uppercase tracking-[.6px] text-faint">
               Notas
@@ -532,6 +578,16 @@ export function ContactPanel({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Fila etiqueta/valor de la ficha del lead. */
+function ProfileRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="shrink-0 text-[11px] font-bold text-faint">{label}</span>
+      <span className="leading-snug text-text-2">{value}</span>
     </div>
   );
 }

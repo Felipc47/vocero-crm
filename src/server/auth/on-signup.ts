@@ -3,10 +3,15 @@ import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 
 /** Etapas sembradas del pipeline (US2). */
-const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
+const SEED_STAGES: {
+  name: string;
+  kind: "open" | "scheduled" | "won" | "lost";
+}[] = [
   { name: "Nuevo", kind: "open" },
   { name: "En conversación", kind: "open" },
   { name: "Interesado", kind: "open" },
+  // La alimenta el sistema al confirmarse una reunión (no se mueve a mano).
+  { name: "Agendado", kind: "scheduled" },
   { name: "Cliente", kind: "won" },
   { name: "Perdido", kind: "lost" },
 ];

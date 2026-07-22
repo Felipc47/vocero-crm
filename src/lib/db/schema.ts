@@ -116,6 +116,11 @@ export const contact = pgTable(
     /** Correo del prospecto (004): lo trae el lead de Meta o lo captura el agente. */
     email: text("email"),
     notes: text("notes"),
+    /** Ficha del lead extraída por IA de la conversación (negocio, necesidad,
+     * presupuesto…). Se REGENERA en cada actualización — no se acumula como
+     * `notes`, que sigue siendo el campo del operador. JSON de `LeadProfile`. */
+    aiProfile: text("ai_profile"),
+    aiProfileAt: timestamp("ai_profile_at"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -135,8 +140,9 @@ export const pipelineStage = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull(),
-    /** open = etapa normal · won / lost = anclas no borrables */
-    kind: text("kind", { enum: ["open", "won", "lost"] })
+    /** open = etapa normal · scheduled / won / lost = anclas no borrables
+     * (`scheduled` la alimenta el sistema al agendar una reunión). */
+    kind: text("kind", { enum: ["open", "scheduled", "won", "lost"] })
       .notNull()
       .default("open"),
     createdAt: timestamp("created_at").notNull().defaultNow(),

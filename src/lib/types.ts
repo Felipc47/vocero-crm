@@ -41,7 +41,8 @@ export type StageDto = {
   id: string;
   name: string;
   position: number;
-  kind: "open" | "won" | "lost";
+  /** `scheduled` la mueve el sistema al confirmarse una reunión. */
+  kind: "open" | "scheduled" | "won" | "lost";
 };
 
 export type ContactDto = {
@@ -50,11 +51,24 @@ export type ContactDto = {
   phone: string;
   email: string | null;
   notes: string | null;
+  /** Ficha extraída por IA de la conversación (se regenera, no se acumula). */
+  aiProfile?: LeadProfileDto | null;
+  aiProfileAt?: string | null;
   archivedAt: string | null;
   /** Etapa del lead del contacto (solo lectura; listado de Contactos). */
   stage?: {
     name: string;
-    kind: "open" | "won" | "lost";
+    kind: "open" | "scheduled" | "won" | "lost";
     position: number;
   } | null;
+};
+
+export type LeadProfileDto = {
+  contactName?: string | null;
+  businessName?: string | null;
+  businessType?: string | null;
+  needs: string[];
+  budget?: string | null;
+  timeline?: string | null;
+  summary?: string | null;
 };

@@ -65,6 +65,20 @@ export async function GET(req: Request, ctx: Params) {
   return Response.json({}, { status: 404 });
 }
 
+/** DELETE outbox → vacía la agenda simulada (aísla corridas del self-test:
+ * un evento de la corrida anterior hacía "slot_taken" en la siguiente). */
+export async function DELETE(_req: Request, ctx: Params) {
+  const guard = mockGuard();
+  if (guard) return guard;
+  const path = (await ctx.params).path.join("/");
+  if (path === "outbox") {
+    const s = state();
+    s.events = [];
+    return Response.json({ cleared: true });
+  }
+  return Response.json({}, { status: 404 });
+}
+
 export async function POST(req: Request, ctx: Params) {
   const guard = mockGuard();
   if (guard) return guard;

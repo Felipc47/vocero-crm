@@ -14,11 +14,13 @@ const OPEN_PALETTE = [
 ] as const;
 
 export function stageColor(stage: {
-  kind: "open" | "won" | "lost";
+  kind: "open" | "scheduled" | "won" | "lost";
   position: number;
 }): string {
   if (stage.kind === "won") return "#3EA672";
   if (stage.kind === "lost") return "#B0564C";
+  // Agendado: azul calendario, distinto de las abiertas y de las anclas.
+  if (stage.kind === "scheduled") return "#4A78B8";
   return OPEN_PALETTE[stage.position % OPEN_PALETTE.length] ?? OPEN_PALETTE[0];
 }
 

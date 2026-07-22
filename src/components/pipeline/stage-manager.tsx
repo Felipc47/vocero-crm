@@ -107,8 +107,20 @@ export function StageManager({
                 className="flex-1"
               />
               {s.kind !== "open" ? (
-                <Badge variant={s.kind === "won" ? "success" : "secondary"}>
-                  {s.kind === "won" ? "ganado" : "perdido"}
+                <Badge
+                  variant={
+                    s.kind === "won"
+                      ? "success"
+                      : s.kind === "scheduled"
+                        ? "warning"
+                        : "secondary"
+                  }
+                >
+                  {s.kind === "won"
+                    ? "ganado"
+                    : s.kind === "scheduled"
+                      ? "automática"
+                      : "perdido"}
                 </Badge>
               ) : (
                 <Button

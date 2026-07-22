@@ -43,6 +43,27 @@ export function aiMockCompletion(messages: InMessage[]): string {
     return JSON.stringify({ veredicto: "verde", hallazgos: [] });
   }
 
+  // Ficha del lead (pasada aparte, tras el turno): extrae del transcript lo
+  // que el "cliente" dijo. Determinista: reconoce las frases del guion E2E.
+  if (system.includes("analista de CRM")) {
+    const t = lastUser.toLowerCase();
+    const negocio = /panader[íi]a\s+([\wáéíóúñ]+)/i.exec(lastUser);
+    const nombre = /me llamo\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)/i.exec(lastUser);
+    return JSON.stringify({
+      contactName: nombre?.[1] ?? null,
+      businessName: negocio ? `Panadería ${negocio[1]}` : null,
+      businessType: t.includes("panader") ? "Panadería" : null,
+      needs: t.includes("página web")
+        ? ["Página web para vender en línea"]
+        : [],
+      budget: /presupuesto de ([^.,\n]+)/i.exec(lastUser)?.[1]?.trim() ?? null,
+      timeline: t.includes("este mes") ? "Este mes" : null,
+      summary: negocio
+        ? `Dueño de Panadería ${negocio[1]}; busca una página web para vender en línea.`
+        : null,
+    });
+  }
+
   const text = lastUser.toLowerCase();
 
   // Persona pide_humano (el regex de respaldo captura la frase canónica; esta
