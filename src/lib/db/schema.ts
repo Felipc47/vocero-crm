@@ -236,7 +236,14 @@ export const message = pgTable(
     waMessageId: text("wa_message_id").unique(),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
     type: text("type").notNull().default("text"),
+    /** Texto del mensaje. En los audios guarda la TRANSCRIPCIÓN y en las
+     * imágenes el pie de foto, para que el historial del agente, la ficha del
+     * lead y la bandeja lo aprovechen sin cambios (007). */
     text: text("text"),
+    /** Adjunto en WhatsApp: se guarda el id (la URL de Meta caduca, el id no)
+     * para poder descargarlo bajo demanda. */
+    mediaId: text("media_id"),
+    mediaMime: text("media_mime"),
     status: text("status", {
       enum: ["pending", "sent", "delivered", "read", "failed"],
     })

@@ -26,6 +26,11 @@ const envSchema = z.object({
   OPENROUTER_BASE_URL: z.string().url().default("https://openrouter.ai/api"),
   OPENROUTER_MODEL: z.string().optional(),
   OPENROUTER_JUDGE_MODEL: z.string().optional(),
+  /** Modelo que TRANSCRIBE las notas de voz (007). Sin él no se transcribe:
+   * el agente sabrá que llegó un audio, pero no su contenido. */
+  OPENROUTER_TRANSCRIBE_MODEL: z.string().optional(),
+  /** Modelo que LEE las imágenes (007). Si se omite, usa OPENROUTER_MODEL. */
+  OPENROUTER_VISION_MODEL: z.string().optional(),
   // Google Calendar (004, constitución 1.3.0): opcional. Sin client id/secret
   // el CRM funciona completo sin agendamiento. Las base URL son configurables
   // para apuntar a los mocks en el self-test.

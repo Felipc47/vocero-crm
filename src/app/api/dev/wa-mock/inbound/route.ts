@@ -17,6 +17,8 @@ const schema = z.object({
   text: z.string().optional(),
   waMessageId: z.string().optional(),
   timestamp: z.number().optional(),
+  mediaId: z.string().optional(),
+  mediaMime: z.string().optional(),
 });
 
 export async function POST(req: Request) {

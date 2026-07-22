@@ -35,6 +35,8 @@ type WaMockState = {
   failNextMode: "delivery" | "auth" | "limit";
   /** Escalón de mensajería que reporta el número (006). */
   messagingLimitTier: string;
+  /** Adjuntos servidos por el mock (007): id → contenido y tipo. */
+  media: Map<string, { bytes: Uint8Array; mime: string }>;
 };
 
 const globalForMock = globalThis as unknown as { __waMockState?: WaMockState };
@@ -55,6 +57,7 @@ export function getWaMockState(): WaMockState {
       failNextSends: 0,
       failNextMode: "delivery",
       messagingLimitTier: "TIER_1K",
+      media: new Map(),
     };
   }
   return globalForMock.__waMockState;
@@ -68,6 +71,7 @@ export function resetWaMockState(): void {
     failNextSends: 0,
     failNextMode: "delivery",
     messagingLimitTier: "TIER_1K",
+    media: new Map(),
   };
 }
 

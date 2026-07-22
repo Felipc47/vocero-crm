@@ -39,12 +39,26 @@ export function isValidSignature(
 
 /* ---------- Tipos del payload de Meta (subconjunto soportado) ---------- */
 
+/** Adjunto de Meta: mismo shape para image/audio/video/document/sticker. */
+export type WebhookMedia = {
+  id?: string;
+  mime_type?: string;
+  /** Pie de foto (solo image/video/document). */
+  caption?: string;
+  voice?: boolean;
+};
+
 export type WebhookMessage = {
   from: string;
   id: string;
   timestamp: string;
   type: string;
   text?: { body: string };
+  image?: WebhookMedia;
+  audio?: WebhookMedia;
+  video?: WebhookMedia;
+  document?: WebhookMedia;
+  sticker?: WebhookMedia;
 };
 
 export type WebhookStatus = {

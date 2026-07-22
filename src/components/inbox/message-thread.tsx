@@ -6,6 +6,7 @@ import {
   Check,
   CheckCheck,
   Clock3,
+  Mic,
   Paperclip,
   Sparkles,
 } from "lucide-react";
@@ -92,6 +93,19 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
                 {m.type === "text" || m.type === "template" ? (
                   <span className="whitespace-pre-wrap break-words">
                     {m.text}
+                  </span>
+                ) : m.type === "audio" && m.text ? (
+                  /* Nota de voz transcrita (007): se lee como texto, con la
+                     marca de que es una transcripción y no algo que el
+                     cliente escribió. */
+                  <span className="block">
+                    <span className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-text-3">
+                      <Mic className="h-3 w-3" strokeWidth={2} />
+                      Nota de voz
+                    </span>
+                    <span className="block whitespace-pre-wrap break-words italic">
+                      {m.text}
+                    </span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-text-3">

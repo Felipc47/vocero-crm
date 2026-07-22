@@ -24,7 +24,8 @@ externas: el trabajo en segundo plano (agente, Laboratorio) es in-process.
 
 | Quieres cambiar… | Toca… |
 |---|---|
-| El cerebro/proveedor LLM | `src/lib/ai/` (adaptador OpenRouter-compatible, `chatJson<T>`) |
+| El cerebro/proveedor LLM | `src/lib/ai/` (adaptador OpenRouter-compatible, `chatJson<T>` con contenido multimodal, `transcribe.ts`) |
+| Audio/imagen del cliente | `src/server/ai/media.ts` (transcribe + visión) + `src/server/whatsapp/media.ts` (descarga) |
 | El comportamiento/prompt del agente | `src/server/ai/prompts.ts` |
 | Las acciones que puede tomar el agente | `src/server/ai/actions.ts` + ejecución en `src/server/ai/pipeline.ts` |
 | Las personas o el juez del Laboratorio | `src/server/lab/personas.ts` · `src/server/lab/judge.ts` |

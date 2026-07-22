@@ -8,9 +8,19 @@ import { getEnv, isAiConfigured } from "@/lib/env";
  * proveedor jamás propaga excepción (resultado `error` tipado).
  */
 
+/**
+ * Contenido multimodal (007): además de texto, un turno puede llevar imágenes
+ * como data URI. El formato es el de la API de chat compatible con OpenAI, así
+ * que no requiere un cliente aparte.
+ */
+export type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  /** `string` para los turnos de solo texto (la mayoría); partes si hay imagen. */
+  content: string | ChatContentPart[];
 };
 
 export type ChatJsonResult<T> =
@@ -33,11 +43,19 @@ export async function chatJson<T>(
     };
   }
   const env = getEnv();
+  // Si el turno lleva imágenes se usa el modelo de visión (si está definido);
+  // así el resto de llamadas siguen yendo al modelo normal sin tocarlas.
+  const hasImages = messages.some(
+    (m) =>
+      Array.isArray(m.content) && m.content.some((p) => p.type === "image_url")
+  );
   const model =
     opts?.model ??
     (opts?.judge
       ? (env.OPENROUTER_JUDGE_MODEL ?? env.OPENROUTER_MODEL)
-      : env.OPENROUTER_MODEL);
+      : hasImages
+        ? (env.OPENROUTER_VISION_MODEL ?? env.OPENROUTER_MODEL)
+        : env.OPENROUTER_MODEL);
   if (!model?.trim()) {
     return {
       ok: false,

@@ -7,6 +7,7 @@ import type { WebhookValue } from "@/server/inbox/webhook";
 import { applyStatusUpdate } from "@/server/inbox/status";
 import { onLeadActivity } from "@/server/inbox/lead-activity";
 import { detectOptOut } from "@/server/inbox/opt-out";
+import { transcribeInboundAudio } from "@/server/ai/media";
 import { translateStoredError } from "@/server/whatsapp/delivery-errors";
 import { maybeRunAgentTurn } from "@/server/ai/trigger";
 
@@ -128,13 +129,20 @@ export async function processMessagesValue(value: WebhookValue): Promise<void> {
     const profileName = value.contacts?.find(
       (c) => c.wa_id === msg.from
     )?.profile?.name;
+    // Adjuntos (007): el shape es el mismo para todos los tipos de media.
+    const media =
+      msg.image ?? msg.audio ?? msg.video ?? msg.document ?? msg.sticker;
     await ingestInboundMessage({
       organizationId,
       from: msg.from,
       profileName: profileName ?? null,
       waMessageId: msg.id,
       type: msg.type,
-      text: msg.text?.body ?? null,
+      // El pie de foto es el texto del mensaje; el audio llega sin texto y su
+      // transcripción se rellena más abajo.
+      text: msg.text?.body ?? media?.caption ?? null,
+      mediaId: media?.id ?? null,
+      mediaMime: media?.mime_type ?? null,
       timestamp: msg.timestamp,
     });
   }
@@ -147,6 +155,8 @@ export async function ingestInboundMessage(input: {
   waMessageId: string;
   type: string;
   text: string | null;
+  mediaId?: string | null;
+  mediaMime?: string | null;
   timestamp: string;
 }): Promise<void> {
   const db = getDb();
@@ -175,13 +185,34 @@ export async function ingestInboundMessage(input: {
       direction: "in",
       type: input.type,
       text: input.text,
+      mediaId: input.mediaId ?? null,
+      mediaMime: input.mediaMime ?? null,
       status: "delivered",
       waTimestamp,
     })
     .onConflictDoNothing({ target: [schema.message.waMessageId] })
     .returning();
-  const message = inserted[0];
+  let message = inserted[0];
   if (!message) return; // duplicado
+
+  // Notas de voz (007): se transcriben ANTES de seguir, para que la bandeja,
+  // la detección de bajas y el turno del agente vean el contenido real. Si no
+  // hay transcripción configurada o el proveedor falla, se sigue igual.
+  if (input.type === "audio" && input.mediaId) {
+    const transcript = await transcribeInboundAudio({
+      organizationId,
+      mediaId: input.mediaId,
+      mime: input.mediaMime ?? null,
+    });
+    if (transcript) {
+      const updated = await db
+        .update(schema.message)
+        .set({ text: transcript })
+        .where(eq(schema.message.id, message.id))
+        .returning();
+      message = updated[0] ?? message;
+    }
+  }
 
   await db
     .update(schema.conversation)
@@ -196,9 +227,9 @@ export async function ingestInboundMessage(input: {
   await onLeadActivity(organizationId, contact.id, waTimestamp);
 
   // Política de Meta (006): si el contacto pide la baja, se respeta al vuelo.
-  // Solo se evalúa texto, y solo si no estaba ya dado de baja.
-  if (input.type === "text" && !contact.optedOutAt) {
-    const reason = detectOptOut(input.text);
+  // Vale también por nota de voz, usando su transcripción (007).
+  if ((input.type === "text" || input.type === "audio") && !contact.optedOutAt) {
+    const reason = detectOptOut(message.text);
     if (reason) {
       await db
         .update(schema.contact)

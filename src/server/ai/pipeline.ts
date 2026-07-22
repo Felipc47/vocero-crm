@@ -3,6 +3,7 @@ import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { getEnv, isAiConfigured } from "@/lib/env";
 import { chatJson, type ChatMessage } from "@/lib/ai";
+import { imageDataUri } from "@/server/ai/media";
 import { publish } from "@/server/events/bus";
 import { isWindowOpen } from "@/server/inbox/window";
 import { SendError, sendText } from "@/server/inbox/send";
@@ -423,15 +424,21 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
         contactEmail: knownEmail,
       }),
     },
-    ...history
-      .filter((m) => m.text)
-      .map((m) => ({
-        role: m.direction === "in" ? ("user" as const) : ("assistant" as const),
-        content: m.text!,
-      })),
+    ...(await buildHistoryMessages(organizationId, history)),
   ];
 
-  const result = await chatJson(AgentAction, messages);
+  let result = await chatJson(AgentAction, messages);
+
+  // 007: si el modelo rechaza la imagen (no soporta visión, formato no
+  // admitido…), NO se escala: se reintenta el mismo turno sin la imagen, con
+  // la etiqueta textual. Ver una imagen es un plus, no un requisito.
+  if (!result.ok && result.error === "provider_error" && hasImageParts(messages)) {
+    console.warn(
+      `[agente] el modelo rechazó la imagen (${result.detail}); reintento sin ella`
+    );
+    result = await chatJson(AgentAction, stripImageParts(messages));
+  }
+
   if (!result.ok) {
     if (result.error === "not_configured") return;
     // Fallo persistente del proveedor o salida imposible → escalar (FR-022).
@@ -493,6 +500,110 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       return;
     }
   }
+}
+
+function hasImageParts(messages: ChatMessage[]): boolean {
+  return messages.some(
+    (m) =>
+      Array.isArray(m.content) && m.content.some((p) => p.type === "image_url")
+  );
+}
+
+/** Misma conversación, con las imágenes reducidas a su etiqueta textual. */
+function stripImageParts(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) => {
+    if (!Array.isArray(m.content)) return m;
+    const text = m.content
+      .map((p) =>
+        p.type === "text" ? p.text : mediaPlaceholder("image")
+      )
+      .filter(Boolean)
+      .join(" ");
+    return { role: m.role, content: text || mediaPlaceholder("image") };
+  });
+}
+
+/** Etiqueta textual de un adjunto que el modelo no puede «ver» (007). */
+function mediaPlaceholder(type: string): string {
+  switch (type) {
+    case "image":
+      return "[el cliente envió una imagen]";
+    case "audio":
+      return "[el cliente envió una nota de voz]";
+    case "video":
+      return "[el cliente envió un video]";
+    case "document":
+      return "[el cliente envió un documento]";
+    case "sticker":
+      return "[el cliente envió un sticker]";
+    case "location":
+      return "[el cliente compartió su ubicación]";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Convierte el historial en turnos para el modelo (007).
+ *
+ * Dos diferencias con el mapeo ingenuo: los adjuntos ya no desaparecen —un
+ * mensaje sin texto se anuncia con su etiqueta— y la ÚLTIMA imagen entrante
+ * viaja de verdad como contenido multimodal para que el modelo la lea.
+ *
+ * Solo se adjunta esa última imagen: mandar el álbum entero en cada turno
+ * multiplicaría el coste sin aportar (el cliente pregunta por lo que acaba de
+ * enviar). Si la descarga falla, queda la etiqueta y el turno continúa.
+ */
+async function buildHistoryMessages(
+  organizationId: string,
+  history: (typeof schema.message.$inferSelect)[]
+): Promise<ChatMessage[]> {
+  const lastImage = [...history]
+    .reverse()
+    .find((m) => m.direction === "in" && m.type === "image" && m.mediaId);
+
+  const dataUri = lastImage?.mediaId
+    ? await imageDataUri({ organizationId, mediaId: lastImage.mediaId })
+    : null;
+
+  const messages: ChatMessage[] = [];
+  for (const m of history) {
+    const role = m.direction === "in" ? ("user" as const) : ("assistant" as const);
+    const text = m.text?.trim() ?? "";
+
+    if (m.id === lastImage?.id && dataUri) {
+      messages.push({
+        role,
+        content: [
+          {
+            type: "text",
+            text: text
+              ? `El cliente envió esta imagen con el texto: «${text}»`
+              : "El cliente envió esta imagen. Descríbela solo si es relevante para atenderlo.",
+          },
+          { type: "image_url", image_url: { url: dataUri } },
+        ],
+      });
+      continue;
+    }
+
+    // Con contenido textual (transcripción del audio o pie de foto), ese texto
+    // ES el mensaje: la etiqueta del adjunto solo se antepone cuando aporta
+    // registro (una nota de voz) o cuando no hay nada más que mostrar.
+    let content: string;
+    if (m.type === "text") {
+      content = text;
+    } else if (m.type === "audio" && text) {
+      content = `(nota de voz) ${text}`;
+    } else if (text) {
+      content = text;
+    } else {
+      content = mediaPlaceholder(m.type);
+    }
+    if (!content) continue;
+    messages.push({ role, content });
+  }
+  return messages;
 }
 
 /**

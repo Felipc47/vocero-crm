@@ -1,4 +1,5 @@
 import { mockGuard } from "@/lib/dev-guard";
+import { getEnv } from "@/lib/env";
 import {
   getWaMockState,
   nextN,
@@ -82,6 +83,31 @@ export async function GET(req: Request, ctx: Params) {
         { name: "phone_number", values: [lead.phone] },
         { name: "email", values: [lead.email] },
       ],
+    });
+  }
+
+  // GET {media_id} → URL firmada del adjunto (007). Meta devuelve una URL de
+  // corta vida que se descarga con el mismo token; aquí apunta al propio mock.
+  if (path.length === 1 && path[0]?.startsWith("mediamock_")) {
+    const entry = getWaMockState().media.get(path[0]);
+    if (!entry) {
+      return Response.json(
+        {
+          error: {
+            message: "Media not found",
+            type: "GraphMethodException",
+            code: 100,
+          },
+        },
+        { status: 404 }
+      );
+    }
+    const base = getEnv().APP_BASE_URL;
+    return Response.json({
+      id: path[0],
+      url: `${base}/api/dev/wa-mock/media/${path[0]}`,
+      mime_type: entry.mime,
+      file_size: entry.bytes.byteLength,
     });
   }
 

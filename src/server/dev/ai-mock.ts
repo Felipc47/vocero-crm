@@ -7,12 +7,49 @@ import { JUDGE_MARKER } from "@/server/ai/prompts";
  * apunta explícitamente a él y el gate de mocks está activo.
  */
 
-type InMessage = { role: string; content: string };
+type ContentPart =
+  | { type: "text"; text?: string }
+  | { type: "image_url"; image_url?: { url?: string } };
+
+type InMessage = { role: string; content: string | ContentPart[] };
+
+/**
+ * Aplana el contenido multimodal (007). Las "imágenes" del self-test son
+ * texto codificado en el data URI, así que se decodifican y se anuncian como
+ * `[IMAGEN: …]`: si esa marca aparece, la imagen viajó DE VERDAD hasta el
+ * proveedor.
+ */
+export function flattenContent(content: string | ContentPart[]): string {
+  if (typeof content === "string") return content;
+  return content
+    .map((part) => {
+      if (part.type === "text") return part.text ?? "";
+      const url = part.image_url?.url ?? "";
+      const base64 = url.split(",")[1] ?? "";
+      const decoded = base64
+        ? Buffer.from(base64, "base64").toString("utf8")
+        : "";
+      return `[IMAGEN: ${decoded.slice(0, 200)}]`;
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function hasImage(messages: InMessage[]): boolean {
+  return messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some((p) => p.type === "image_url")
+  );
+}
 
 export function aiMockCompletion(messages: InMessage[]): string {
-  const system = messages.find((m) => m.role === "system")?.content ?? "";
-  const lastUser =
-    [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const system = flattenContent(
+    messages.find((m) => m.role === "system")?.content ?? ""
+  );
+  const lastUser = flattenContent(
+    [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
+  );
 
   // Juez del Laboratorio: veredicto determinista por persona. Para cerrar el
   // loop del self-test, la persona fuera_de_kb pasa a verde si el CONOCIMIENTO
@@ -66,6 +103,16 @@ export function aiMockCompletion(messages: InMessage[]): string {
 
   const text = lastUser.toLowerCase();
 
+  // 007: el turno trae una imagen. Se responde citando su contenido para que
+  // el self-test pueda comprobar que el modelo la recibió de verdad.
+  const imageMatch = /\[IMAGEN: ([^\]]*)\]/.exec(lastUser);
+  if (imageMatch) {
+    return JSON.stringify({
+      action: "reply",
+      text: `Veo en la imagen: ${imageMatch[1]?.trim()}. ¿Cómo te ayudo con eso?`,
+    });
+  }
+
   // Persona pide_humano (el regex de respaldo captura la frase canónica; esta
   // rama cubre variantes que llegan al modelo).
   if (text.includes("humano") || text.includes("asesor")) {
@@ -78,7 +125,7 @@ export function aiMockCompletion(messages: InMessage[]): string {
   // correo, después "11 am" a secas para elegir horario).
   const allUser = messages
     .filter((m) => m.role === "user")
-    .map((m) => m.content)
+    .map((m) => flattenContent(m.content))
     .join("\n");
   // El correo puede venir YA conocido en el system prompt (ficha del contacto):
   // en ese caso el modelo no debe pedirlo, solo usarlo.

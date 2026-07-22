@@ -35,6 +35,9 @@ export function buildInboundPayload(input: {
   text?: string;
   waMessageId?: string;
   timestamp?: number;
+  /** Adjunto simulado (007): id del media servido por el propio wa-mock. */
+  mediaId?: string;
+  mediaMime?: string;
 }) {
   const type = input.type ?? "text";
   const message: Record<string, unknown> = {
@@ -43,7 +46,20 @@ export function buildInboundPayload(input: {
     timestamp: String(input.timestamp ?? Math.floor(Date.now() / 1000)),
     type,
   };
-  if (type === "text") message.text = { body: input.text ?? "hola" };
+  if (type === "text") {
+    message.text = { body: input.text ?? "hola" };
+  } else if (input.mediaId) {
+    // Meta usa el mismo shape para image/audio/video/document/sticker; el
+    // pie de foto solo viaja en los que lo admiten.
+    const media: Record<string, unknown> = {
+      id: input.mediaId,
+      mime_type:
+        input.mediaMime ?? (type === "audio" ? "audio/ogg" : "image/jpeg"),
+    };
+    if (input.text && type !== "audio") media.caption = input.text;
+    if (type === "audio") media.voice = true;
+    message[type] = media;
+  }
 
   return {
     object: "whatsapp_business_account",
