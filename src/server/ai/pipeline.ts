@@ -12,13 +12,17 @@ import {
   isSameReplyText,
   REPEAT_WINDOW_MIN,
 } from "@/server/ai/repeat-guard";
-import { quoteAppearsInInbound } from "@/server/ai/schedule-confirm";
+import {
+  inboundMentionsTime,
+  quoteAppearsInInbound,
+} from "@/server/ai/schedule-confirm";
 import { refreshLeadProfile } from "@/server/ai/lead-profile";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
 import { isGoogleConfigured } from "@/lib/env";
 import {
   freeRangesByDay,
   isValidMeetingStart,
+  localMinutesOfDay,
   minSchedulableStart,
   utcOffsetOf,
   type DayAvailability,
@@ -524,10 +528,16 @@ async function executeScheduleMeeting(
     return;
   }
 
-  // El CLIENTE debe haber confirmado la hora: el modelo cita sus palabras
-  // (clientOk) y aquí se verifica que la cita exista en el historial entrante.
-  // Sin evidencia → no se agenda: se ofrecen horarios libres y se espera.
-  if (!quoteAppearsInInbound(action.clientOk, inboundTexts)) {
+  // El CLIENTE debe haber confirmado la hora. Dos evidencias independientes:
+  // la cita textual del modelo (clientOk) o —para respuestas cortísimas como
+  // "11 am", que no llegan al mínimo de la cita— que la hora a agendar aparezca
+  // mencionada por el cliente. Sin ninguna → se ofrecen horarios y se espera.
+  const confirmedByQuote = quoteAppearsInInbound(action.clientOk, inboundTexts);
+  const confirmedByTime = inboundMentionsTime(
+    localMinutesOfDay(start, calSettings.timezone),
+    inboundTexts
+  );
+  if (!confirmedByQuote && !confirmedByTime) {
     const opciones = await alternativesText(
       conversation.organizationId,
       calSettings

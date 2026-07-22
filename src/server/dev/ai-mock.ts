@@ -74,11 +74,24 @@ export function aiMockCompletion(messages: InMessage[]): string {
 
   // 004: agendar reunión — solo si el system prompt ofrece la acción (es
   // decir, con Google Calendar conectado) y el cliente dio correo + intención.
-  const emailMatch = lastUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+  // El correo puede haberlo dado en un mensaje ANTERIOR (caso real: primero el
+  // correo, después "11 am" a secas para elegir horario).
+  const allUser = messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .join("\n");
+  const emailMatch =
+    lastUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) ??
+    allUser.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+  // Respuesta corta con hora ("11 am", "a las 11", "11"): el cliente está
+  // eligiendo entre los horarios ofrecidos.
+  const bareTime = /^\s*(a\s+las\s+)?\d{1,2}(:\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?\s*$/i.test(
+    lastUser
+  );
   if (
     system.includes("schedule_meeting") &&
     emailMatch &&
-    (text.includes("agend") || text.includes("reuni"))
+    (text.includes("agend") || text.includes("reuni") || bareTime)
   ) {
     // "hoy mismo" simula al modelo pidiendo ANTES de la antelación mínima;
     // "medianoche" simula una hora fuera del horario laboral. El servidor
@@ -90,6 +103,12 @@ export function aiMockCompletion(messages: InMessage[]): string {
     );
     if (offHours) {
       start.setUTCHours(3, 0, 0, 0); // 22:00 Bogotá — fuera de jornada
+    } else if (bareTime) {
+      // La hora que eligió el cliente (Bogotá = UTC-5).
+      const h = Number(/\d{1,2}/.exec(lastUser)?.[0] ?? "10");
+      const pm = /p\.?\s*m\.?/i.test(lastUser);
+      const hour24 = pm && h < 12 ? h + 12 : h;
+      start.setUTCHours(hour24 + 5, 0, 0, 0);
     } else {
       start.setUTCHours(15, 0, 0, 0); // 10:00 Bogotá — franja válida
     }
