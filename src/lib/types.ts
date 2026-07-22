@@ -72,3 +72,43 @@ export type LeadProfileDto = {
   timeline?: string | null;
   summary?: string | null;
 };
+
+/** Envío masivo (005). */
+export type CampaignProgressDto = {
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+};
+
+export type CampaignStatus =
+  | "draft"
+  | "running"
+  | "paused"
+  | "done"
+  | "failed";
+
+export type CampaignDto = {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  templateName: string;
+  variableMode: "none" | "contact_name" | "fixed";
+  error: string | null;
+  createdAt: string;
+  progress: CampaignProgressDto;
+};
+
+export type CampaignRecipientDto = {
+  id: string;
+  status: "pending" | "sent" | "failed";
+  error: string | null;
+  contactName: string;
+  contactPhone: string;
+};
+
+export type AudienceFilterDto =
+  | { mode: "all" }
+  | { mode: "stages"; stageIds: string[] }
+  | { mode: "services"; serviceIds: string[] }
+  | { mode: "manual"; contactIds: string[] };

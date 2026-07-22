@@ -20,6 +20,8 @@ const prefixes = {
   testCase: "case",
   service: "svc",
   serviceForm: "sform",
+  campaign: "cmp",
+  campaignRecipient: "crp",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

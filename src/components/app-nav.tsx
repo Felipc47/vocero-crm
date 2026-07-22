@@ -10,6 +10,7 @@ import {
   Inbox,
   Kanban,
   LogOut,
+  Megaphone,
   Moon,
   Settings,
   Sparkles,
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/contacts", label: "Contactos", icon: Users },
   { href: "/agent", label: "Agente", icon: Sparkles },
   { href: "/templates", label: "Plantillas", icon: FileText },
+  { href: "/campaigns", label: "Envío masivo", icon: Megaphone },
   { href: "/services", label: "Servicios", icon: Briefcase },
 ] as const;
 

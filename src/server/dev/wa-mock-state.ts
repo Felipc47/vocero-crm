@@ -26,6 +26,12 @@ type WaMockState = {
   outbox: OutboxEntry[];
   templates: MockTemplate[];
   counter: number;
+  /** Envíos que el mock debe RECHAZAR antes de volver a aceptar. Permite
+   * ejercer el camino infeliz (destinatario que falla y luego se reintenta)
+   * sin depender de la disponibilidad real de Meta. */
+  failNextSends: number;
+  /** Cómo falla: `delivery` (culpa del destinatario) o `auth` (token caído). */
+  failNextMode: "delivery" | "auth";
 };
 
 const globalForMock = globalThis as unknown as { __waMockState?: WaMockState };
@@ -43,6 +49,8 @@ export function getWaMockState(): WaMockState {
       outbox: [],
       templates: [],
       counter: seedCounter(),
+      failNextSends: 0,
+      failNextMode: "delivery",
     };
   }
   return globalForMock.__waMockState;
@@ -53,6 +61,8 @@ export function resetWaMockState(): void {
     outbox: [],
     templates: [],
     counter: seedCounter(),
+    failNextSends: 0,
+    failNextMode: "delivery",
   };
 }
 

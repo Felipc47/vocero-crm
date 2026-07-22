@@ -31,6 +31,7 @@ externas: el trabajo en segundo plano (agente, Laboratorio) es in-process.
 | El canal WhatsApp (Graph API) | `src/lib/meta/` (cliente único) + `src/server/whatsapp/` |
 | Campos/tablas | `src/lib/db/schema.ts` → `pnpm db:generate` → migración nueva en `drizzle/` |
 | La ingesta/envío de mensajes | `src/server/inbox/` (ingest idempotente, send con guard de sandbox, ventana 24h) |
+| El envío masivo (campañas) | `src/server/campaigns/` (audiencia + despachador ~1 msg/s, `CAMPAIGN_RATE_MS`) |
 | UI | `src/components/` + `src/app/(app)/` |
 
 Los mocks del entorno de pruebas viven en `src/app/api/dev/` (wa-mock +

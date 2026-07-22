@@ -109,6 +109,24 @@ export async function POST(req: Request, ctx: Params) {
   // POST {phoneNumberId}/messages → registra en el outbox
   if (path.length === 2 && path[1] === "messages") {
     const state = getWaMockState();
+    // Fallo inyectado por el self-test: simula el rechazo de Meta a un
+    // destinatario concreto sin tumbar el resto del envío.
+    if (state.failNextSends > 0) {
+      state.failNextSends -= 1;
+      // `auth`: el token cayó a mitad del envío (fallo del canal, no del
+      // destinatario). `delivery`: Meta rechaza ese destinatario concreto.
+      if (state.failNextMode === "auth") return invalidTokenResponse();
+      return Response.json(
+        {
+          error: {
+            message: "(#131026) Message undeliverable",
+            type: "WhatsAppBusinessApiError",
+            code: 131026,
+          },
+        },
+        { status: 400 }
+      );
+    }
     const n = nextN();
     state.outbox.push({
       n,

@@ -21,6 +21,19 @@ export type SseEvent =
         progress: { done: number; total: number };
         score?: number | null;
       };
+    }
+  | {
+      type: "campaign.progress";
+      data: {
+        campaignId: string;
+        status: string;
+        progress: {
+          total: number;
+          pending: number;
+          sent: number;
+          failed: number;
+        };
+      };
     };
 
 const globalForBus = globalThis as unknown as { __seomosBus?: EventEmitter };

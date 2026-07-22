@@ -43,6 +43,13 @@
       "when": 1784679095053,
       "tag": "0005_milky_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784736641075,
+      "tag": "0006_brainy_expediter",
+      "breakpoints": true
     }
   ]
 }

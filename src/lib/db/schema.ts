@@ -468,3 +468,76 @@ export const agentTestCase = pgTable(
   },
   (t) => [index("test_case_run_idx").on(t.runId)]
 );
+
+/** Campaña de envío masivo (005): una plantilla APROBADA a muchos contactos,
+ * despachada en segundo plano a ~1 msg/s. `audience` guarda el filtro con el
+ * que se materializaron los destinatarios (auditoría, no se re-evalúa). */
+export const campaign = pgTable(
+  "campaign",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => template.id, { onDelete: "restrict" }),
+    /** Relleno de {{1}}: sin variable · nombre del contacto · valor fijo. */
+    variableMode: text("variable_mode", {
+      enum: ["none", "contact_name", "fixed"],
+    })
+      .notNull()
+      .default("none"),
+    variableValue: text("variable_value"),
+    status: text("status", {
+      enum: ["draft", "running", "paused", "done", "failed"],
+    })
+      .notNull()
+      .default("draft"),
+    /** JSON del filtro de audiencia usado al crear (`AudienceFilter`). */
+    audience: jsonb("audience"),
+    error: text("error"),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("campaign_org_idx").on(t.organizationId, t.createdAt),
+    // Lock de concurrencia: máximo 1 campaña despachando por organización.
+    uniqueIndex("campaign_org_running_uq")
+      .on(t.organizationId)
+      .where(sql`${t.status} = 'running'`),
+  ]
+);
+
+/** Destinatario de una campaña. El UNIQUE (campaign, contact) es la garantía
+ * de idempotencia (Constitución IV): un contacto nunca recibe dos veces la
+ * misma campaña, ni al recrearla ni al reanudarla. */
+export const campaignRecipient = pgTable(
+  "campaign_recipient",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaign.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["pending", "sent", "failed"] })
+      .notNull()
+      .default("pending"),
+    messageId: text("message_id"),
+    error: text("error"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("campaign_recipient_uq").on(t.campaignId, t.contactId),
+    index("campaign_recipient_status_idx").on(t.campaignId, t.status),
+  ]
+);
