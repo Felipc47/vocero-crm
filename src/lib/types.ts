@@ -27,6 +27,8 @@ export type MessageDto = {
   error: string | null;
   aiGenerated: boolean;
   createdAt: string;
+  hasMedia: boolean;
+  mediaMime: string | null;
 };
 
 export type TemplateDto = {

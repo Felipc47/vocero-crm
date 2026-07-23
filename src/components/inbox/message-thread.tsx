@@ -1,18 +1,116 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
   CheckCheck,
   Clock3,
+  ImageIcon,
   Mic,
   Paperclip,
+  Play,
   Sparkles,
 } from "lucide-react";
 import type { MessageDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { mediaLabel } from "./helpers";
+
+function mediaUrl(m: MessageDto): string {
+  return `/api/conversations/${m.conversationId}/messages/${m.id}/media`;
+}
+
+/**
+ * Nota de voz: la transcripción se muestra siempre; el audio solo se descarga
+ * cuando el usuario presiona «Reproducir» (nada baja solo).
+ */
+function VoiceNote({ m }: { m: MessageDto }) {
+  const [state, setState] = useState<"idle" | "playing" | "error">("idle");
+  return (
+    <span className="block">
+      <span className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-text-3">
+        <Mic className="h-3 w-3" strokeWidth={2} />
+        Nota de voz
+      </span>
+      {m.hasMedia && state === "idle" && (
+        <button
+          onClick={() => setState("playing")}
+          className="mb-1 flex items-center gap-2 rounded-full border bg-surface-2 py-1.5 pl-2.5 pr-3.5 text-[12.5px] font-bold text-text-2 transition-colors hover:bg-subtle"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white">
+            <Play className="ml-0.5 h-3 w-3 fill-current" strokeWidth={2} />
+          </span>
+          Reproducir
+        </button>
+      )}
+      {state === "playing" && (
+        <audio
+          controls
+          autoPlay
+          preload="auto"
+          src={mediaUrl(m)}
+          onError={() => setState("error")}
+          className="mb-1 h-10 w-64 max-w-full"
+        />
+      )}
+      {state === "error" && (
+        <span className="mb-1 block text-[12px] italic text-text-3">
+          La nota de voz ya no está disponible en WhatsApp.
+        </span>
+      )}
+      {m.text && (
+        <span className="block whitespace-pre-wrap break-words italic">
+          {m.text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Imagen: no se descarga al abrir el hilo — se muestra un adjunto que el
+ * usuario presiona para traer la imagen bajo demanda.
+ */
+function ImageAttachment({ m }: { m: MessageDto }) {
+  const [state, setState] = useState<"idle" | "shown" | "error">("idle");
+  return (
+    <span className="block">
+      {state === "idle" && (
+        <button
+          onClick={() => setState("shown")}
+          className="mb-1 flex items-center gap-2.5 rounded-xl border bg-surface-2 px-3.5 py-2.5 text-left transition-colors hover:bg-subtle"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+            <ImageIcon className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
+          <span>
+            <span className="block text-[13px] font-bold">Imagen</span>
+            <span className="block text-[11.5px] text-text-3">
+              Presiona para descargar
+            </span>
+          </span>
+        </button>
+      )}
+      {state === "shown" && (
+        // eslint-disable-next-line @next/next/no-img-element -- binario autenticado bajo demanda, fuera del optimizador
+        <img
+          src={mediaUrl(m)}
+          alt={m.text ?? "Imagen recibida"}
+          onError={() => setState("error")}
+          className="mb-1 max-h-80 w-auto max-w-full rounded-xl border"
+        />
+      )}
+      {state === "error" && (
+        <span className="mb-1 block text-[12px] italic text-text-3">
+          La imagen ya no está disponible en WhatsApp.
+        </span>
+      )}
+      {m.text && (
+        <span className="block whitespace-pre-wrap break-words">{m.text}</span>
+      )}
+    </span>
+  );
+}
 
 function StatusTicks({ status }: { status: MessageDto["status"] }) {
   const cls = "h-[13px] w-[13px]";
@@ -94,19 +192,12 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
                   <span className="whitespace-pre-wrap break-words">
                     {m.text}
                   </span>
-                ) : m.type === "audio" && m.text ? (
-                  /* Nota de voz transcrita (007): se lee como texto, con la
-                     marca de que es una transcripción y no algo que el
-                     cliente escribió. */
-                  <span className="block">
-                    <span className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-text-3">
-                      <Mic className="h-3 w-3" strokeWidth={2} />
-                      Nota de voz
-                    </span>
-                    <span className="block whitespace-pre-wrap break-words italic">
-                      {m.text}
-                    </span>
-                  </span>
+                ) : m.type === "audio" && (m.hasMedia || m.text) ? (
+                  /* Nota de voz (007): transcripción siempre visible +
+                     reproducción bajo demanda si el adjunto sigue vivo. */
+                  <VoiceNote m={m} />
+                ) : m.type === "image" && m.hasMedia ? (
+                  <ImageAttachment m={m} />
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-text-3">
                     <Paperclip className="h-3.5 w-3.5" strokeWidth={1.7} />

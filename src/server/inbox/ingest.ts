@@ -271,5 +271,9 @@ export function serializeMessage(m: typeof schema.message.$inferSelect) {
     error: m.error ? translateStoredError(m.error) : null,
     aiGenerated: m.aiGenerated,
     createdAt: (m.waTimestamp ?? m.createdAt).toISOString(),
+    // El binario nunca viaja en el DTO: la UI lo pide bajo demanda al
+    // endpoint de media cuando el usuario presiona el adjunto.
+    hasMedia: m.mediaId !== null,
+    mediaMime: m.mediaMime,
   };
 }

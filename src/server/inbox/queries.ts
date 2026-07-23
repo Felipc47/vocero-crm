@@ -112,6 +112,27 @@ export async function listMessages(
     .orderBy(schema.message.createdAt);
 }
 
+export async function getMessage(
+  organizationId: string,
+  conversationId: string,
+  messageId: string
+) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.message)
+    .where(
+      scoped(
+        schema.message.organizationId,
+        organizationId,
+        eq(schema.message.conversationId, conversationId),
+        eq(schema.message.id, messageId)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export function serializeConversation(
   c: typeof schema.conversation.$inferSelect,
   contact: typeof schema.contact.$inferSelect,
