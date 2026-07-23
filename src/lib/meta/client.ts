@@ -40,19 +40,50 @@ export async function graphRequest<T>(
     body?: unknown;
   }
 ): Promise<T> {
+  return graphFetch(path, {
+    method: opts.method ?? "GET",
+    token: opts.token,
+    contentType: opts.body !== undefined ? "application/json" : null,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+}
+
+/**
+ * Subida multipart (adjuntos): `POST /{phone_number_id}/media`. FormData pone
+ * su propio Content-Type con boundary — no se fija a mano.
+ */
+export async function graphUpload<T>(
+  path: string,
+  opts: { token: string; form: FormData }
+): Promise<T> {
+  return graphFetch(path, {
+    method: "POST",
+    token: opts.token,
+    contentType: null,
+    body: opts.form,
+  });
+}
+
+async function graphFetch<T>(
+  path: string,
+  opts: {
+    method: "GET" | "POST" | "DELETE";
+    token: string;
+    contentType: string | null;
+    body?: BodyInit;
+  }
+): Promise<T> {
   const env = getEnv();
   const url = `${env.META_GRAPH_BASE_URL}/${env.META_GRAPH_API_VERSION}/${path}`;
   let res: Response;
   try {
     res = await fetch(url, {
-      method: opts.method ?? "GET",
+      method: opts.method,
       headers: {
         Authorization: `Bearer ${opts.token}`,
-        ...(opts.body !== undefined
-          ? { "Content-Type": "application/json" }
-          : {}),
+        ...(opts.contentType ? { "Content-Type": opts.contentType } : {}),
       },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      body: opts.body,
     });
   } catch (cause) {
     throw new MetaApiError("No se pudo contactar la API de Meta", {

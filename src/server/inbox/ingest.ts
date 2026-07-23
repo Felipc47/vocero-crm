@@ -143,6 +143,7 @@ export async function processMessagesValue(value: WebhookValue): Promise<void> {
       text: msg.text?.body ?? media?.caption ?? null,
       mediaId: media?.id ?? null,
       mediaMime: media?.mime_type ?? null,
+      mediaFilename: media?.filename ?? null,
       timestamp: msg.timestamp,
     });
   }
@@ -157,6 +158,7 @@ export async function ingestInboundMessage(input: {
   text: string | null;
   mediaId?: string | null;
   mediaMime?: string | null;
+  mediaFilename?: string | null;
   timestamp: string;
 }): Promise<void> {
   const db = getDb();
@@ -187,6 +189,7 @@ export async function ingestInboundMessage(input: {
       text: input.text,
       mediaId: input.mediaId ?? null,
       mediaMime: input.mediaMime ?? null,
+      mediaFilename: input.mediaFilename ?? null,
       status: "delivered",
       waTimestamp,
     })
@@ -275,5 +278,6 @@ export function serializeMessage(m: typeof schema.message.$inferSelect) {
     // endpoint de media cuando el usuario presiona el adjunto.
     hasMedia: m.mediaId !== null,
     mediaMime: m.mediaMime,
+    mediaFilename: m.mediaFilename,
   };
 }

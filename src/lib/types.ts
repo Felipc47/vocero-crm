@@ -29,6 +29,7 @@ export type MessageDto = {
   createdAt: string;
   hasMedia: boolean;
   mediaMime: string | null;
+  mediaFilename: string | null;
 };
 
 export type TemplateDto = {

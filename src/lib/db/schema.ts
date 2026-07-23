@@ -248,6 +248,9 @@ export const message = pgTable(
      * para poder descargarlo bajo demanda. */
     mediaId: text("media_id"),
     mediaMime: text("media_mime"),
+    /** Nombre de archivo del documento (lo manda Meta; en salientes, el del
+     * archivo subido) para mostrarlo y usarlo al descargar. */
+    mediaFilename: text("media_filename"),
     status: text("status", {
       enum: ["pending", "sent", "delivered", "read", "failed"],
     })

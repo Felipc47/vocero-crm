@@ -19,6 +19,7 @@ const schema = z.object({
   timestamp: z.number().optional(),
   mediaId: z.string().optional(),
   mediaMime: z.string().optional(),
+  mediaFilename: z.string().optional(),
 });
 
 export async function POST(req: Request) {

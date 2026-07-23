@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getConversation, listMessages } from "@/server/inbox/queries";
 import { serializeMessage } from "@/server/inbox/ingest";
-import { SendError, sendText } from "@/server/inbox/send";
+import { SEND_ERROR_STATUS, SendError, sendText } from "@/server/inbox/send";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +26,6 @@ export const GET = withAuth(async (session, req: Request, ctx: Params) => {
 
 const sendSchema = z.object({ text: z.string().trim().min(1).max(4096) });
 
-const SEND_ERROR_STATUS: Record<SendError["code"], number> = {
-  sandbox_violation: 403,
-  not_connected: 409,
-  reconnect_required: 409,
-  window_closed: 409,
-  meta_error: 422,
-  meta_unavailable: 503,
-};
 
 export const POST = withAuth(async (session, req: Request, ctx: Params) => {
   const { id } = await ctx.params;

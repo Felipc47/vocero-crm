@@ -38,6 +38,7 @@ export function buildInboundPayload(input: {
   /** Adjunto simulado (007): id del media servido por el propio wa-mock. */
   mediaId?: string;
   mediaMime?: string;
+  mediaFilename?: string;
 }) {
   const type = input.type ?? "text";
   const message: Record<string, unknown> = {
@@ -58,6 +59,8 @@ export function buildInboundPayload(input: {
     };
     if (input.text && type !== "audio") media.caption = input.text;
     if (type === "audio") media.voice = true;
+    if (type === "document" && input.mediaFilename)
+      media.filename = input.mediaFilename;
     message[type] = media;
   }
 

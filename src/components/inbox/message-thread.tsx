@@ -6,6 +6,8 @@ import {
   Check,
   CheckCheck,
   Clock3,
+  Download,
+  FileText,
   ImageIcon,
   Mic,
   Paperclip,
@@ -18,6 +20,104 @@ import { mediaLabel } from "./helpers";
 
 function mediaUrl(m: MessageDto): string {
   return `/api/conversations/${m.conversationId}/messages/${m.id}/media`;
+}
+
+/**
+ * Documento (PDF, Word, etc.): tarjeta con el nombre del archivo; al
+ * presionarla se descarga bajo demanda con su nombre original.
+ */
+function DocumentAttachment({ m }: { m: MessageDto }) {
+  const [state, setState] = useState<"idle" | "busy" | "error">("idle");
+
+  async function download() {
+    if (state === "busy") return;
+    setState("busy");
+    const res = await fetch(`${mediaUrl(m)}?download=1`).catch(() => null);
+    if (!res?.ok) {
+      setState("error");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = m.mediaFilename ?? "adjunto";
+    a.click();
+    URL.revokeObjectURL(url);
+    setState("idle");
+  }
+
+  return (
+    <span className="block">
+      <button
+        onClick={() => void download()}
+        className="mb-1 flex items-center gap-2.5 rounded-xl border bg-surface-2 px-3.5 py-2.5 text-left transition-colors hover:bg-subtle"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+          <FileText className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-bold">
+            {m.mediaFilename ?? "Documento"}
+          </span>
+          <span className="block text-[11.5px] text-text-3">
+            {state === "busy" ? "Descargando…" : "Presiona para descargar"}
+          </span>
+        </span>
+        <Download className="ml-1 h-4 w-4 shrink-0 text-mute" strokeWidth={2} />
+      </button>
+      {state === "error" && (
+        <span className="mb-1 block text-[12px] italic text-text-3">
+          El documento ya no está disponible en WhatsApp.
+        </span>
+      )}
+      {m.text && (
+        <span className="block whitespace-pre-wrap break-words">{m.text}</span>
+      )}
+    </span>
+  );
+}
+
+/** Video: igual que la imagen, solo baja cuando el usuario lo pide. */
+function VideoAttachment({ m }: { m: MessageDto }) {
+  const [state, setState] = useState<"idle" | "shown" | "error">("idle");
+  return (
+    <span className="block">
+      {state === "idle" && (
+        <button
+          onClick={() => setState("shown")}
+          className="mb-1 flex items-center gap-2.5 rounded-xl border bg-surface-2 px-3.5 py-2.5 text-left transition-colors hover:bg-subtle"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+            <Play className="ml-0.5 h-[18px] w-[18px] fill-current" strokeWidth={2} />
+          </span>
+          <span>
+            <span className="block text-[13px] font-bold">Video</span>
+            <span className="block text-[11.5px] text-text-3">
+              Presiona para descargar
+            </span>
+          </span>
+        </button>
+      )}
+      {state === "shown" && (
+        <video
+          controls
+          autoPlay
+          src={mediaUrl(m)}
+          onError={() => setState("error")}
+          className="mb-1 max-h-80 w-auto max-w-full rounded-xl border"
+        />
+      )}
+      {state === "error" && (
+        <span className="mb-1 block text-[12px] italic text-text-3">
+          El video ya no está disponible en WhatsApp.
+        </span>
+      )}
+      {m.text && (
+        <span className="block whitespace-pre-wrap break-words">{m.text}</span>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -196,8 +296,13 @@ export function MessageThread({ messages }: { messages: MessageDto[] }) {
                   /* Nota de voz (007): transcripción siempre visible +
                      reproducción bajo demanda si el adjunto sigue vivo. */
                   <VoiceNote m={m} />
-                ) : m.type === "image" && m.hasMedia ? (
+                ) : (m.type === "image" || m.type === "sticker") &&
+                  m.hasMedia ? (
                   <ImageAttachment m={m} />
+                ) : m.type === "video" && m.hasMedia ? (
+                  <VideoAttachment m={m} />
+                ) : m.type === "document" && m.hasMedia ? (
+                  <DocumentAttachment m={m} />
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-text-3">
                     <Paperclip className="h-3.5 w-3.5" strokeWidth={1.7} />

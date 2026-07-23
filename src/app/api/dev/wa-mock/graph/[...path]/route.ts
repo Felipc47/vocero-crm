@@ -132,6 +132,25 @@ export async function POST(req: Request, ctx: Params) {
   const token = bearerToken(req);
   if (token.endsWith("-invalid")) return invalidTokenResponse();
 
+  // POST {phoneNumberId}/media → subida multipart de un adjunto saliente,
+  // como la real: devuelve un media_id reutilizable (envío + descarga).
+  if (path.length === 2 && path[1] === "media") {
+    const form = await req.formData().catch(() => null);
+    const file = form?.get("file");
+    if (!(file instanceof File)) {
+      return Response.json(
+        { error: { message: "Missing file", type: "GraphMethodException", code: 100 } },
+        { status: 400 }
+      );
+    }
+    const mediaId = `mediamock_${nextN()}`;
+    getWaMockState().media.set(mediaId, {
+      bytes: new Uint8Array(await file.arrayBuffer()),
+      mime: file.type || "application/octet-stream",
+    });
+    return Response.json({ id: mediaId });
+  }
+
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   // POST {phoneNumberId}/messages → registra en el outbox

@@ -45,6 +45,8 @@ export type WebhookMedia = {
   mime_type?: string;
   /** Pie de foto (solo image/video/document). */
   caption?: string;
+  /** Nombre del archivo (solo document). */
+  filename?: string;
   voice?: boolean;
 };
 
