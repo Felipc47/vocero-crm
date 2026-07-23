@@ -1,7 +1,9 @@
 # Seomos CRM — Guía para Claude
 
 Seomos es un CRM de WhatsApp open source (MIT), self-hosted, con agente de IA y
-Laboratorio de auto-evaluación. Una instancia = un negocio. Este archivo guía a
+Laboratorio de auto-evaluación. Una instancia aloja VARIAS empresas
+(organizaciones) con espacios aislados: el superadmin (primer usuario) las crea
+en /companies con su admin; el registro público permanece cerrado. Este archivo guía a
 Claude Code (u otro asistente) para operar y **modificar** este repositorio —
 el caso típico: una agencia adaptando Seomos para un cliente.
 
