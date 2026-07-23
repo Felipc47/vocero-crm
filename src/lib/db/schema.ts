@@ -210,6 +210,10 @@ export const conversation = pgTable(
     /** Inicio de la última reunión agendada: evita re-agendar por repetición. */
     meetingScheduledFor: timestamp("meeting_scheduled_for"),
     unreadCount: integer("unread_count").notNull().default(0),
+    /** Anclada arriba de la bandeja (máx. 3 por organización). */
+    pinnedAt: timestamp("pinned_at"),
+    /** Oculta de la bandeja principal; visible en la sección Archivadas. */
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

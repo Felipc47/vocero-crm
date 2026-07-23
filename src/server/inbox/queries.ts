@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, ne, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { isWindowOpen, windowRemainingMs } from "@/server/inbox/window";
@@ -16,7 +16,12 @@ export type ConversationDto = {
   windowOpen: boolean;
   windowRemainingMs: number;
   preview: string | null;
+  pinnedAt: string | null;
+  archivedAt: string | null;
 };
+
+/** Máximo de conversaciones ancladas simultáneas por organización. */
+export const MAX_PINNED = 3;
 
 export async function listConversations(
   organizationId: string,
@@ -126,14 +131,25 @@ export function serializeConversation(
     windowOpen: isWindowOpen(c.lastInboundAt),
     windowRemainingMs: windowRemainingMs(c.lastInboundAt),
     preview,
+    pinnedAt: c.pinnedAt?.toISOString() ?? null,
+    archivedAt: c.archivedAt?.toISOString() ?? null,
   };
 }
 
 export async function updateConversation(
   organizationId: string,
   conversationId: string,
-  patch: { aiEnabled?: boolean; reactivate?: boolean; markRead?: boolean }
-) {
+  patch: {
+    aiEnabled?: boolean;
+    reactivate?: boolean;
+    markRead?: boolean;
+    pinned?: boolean;
+    archived?: boolean;
+  }
+): Promise<
+  | { ok: true; row: typeof schema.conversation.$inferSelect }
+  | { ok: false; error: "not_found" | "pin_limit" }
+> {
   const db = getDb();
   const set: Record<string, unknown> = { updatedAt: new Date() };
   if (patch.aiEnabled !== undefined) set.aiEnabled = patch.aiEnabled;
@@ -143,6 +159,44 @@ export async function updateConversation(
     set.aiEnabled = patch.aiEnabled ?? true;
   }
   if (patch.markRead) set.unreadCount = 0;
+  if (patch.pinned === true) {
+    // Existencia primero: un id ajeno/inexistente debe ser 404, no pin_limit.
+    const target = await db
+      .select({ id: schema.conversation.id })
+      .from(schema.conversation)
+      .where(
+        scoped(
+          schema.conversation.organizationId,
+          organizationId,
+          eq(schema.conversation.id, conversationId)
+        )
+      )
+      .limit(1);
+    if (!target[0]) return { ok: false, error: "not_found" };
+    const pinned = await db
+      .select({ id: schema.conversation.id })
+      .from(schema.conversation)
+      .where(
+        scoped(
+          schema.conversation.organizationId,
+          organizationId,
+          eq(schema.conversation.isTest, false),
+          isNotNull(schema.conversation.pinnedAt),
+          ne(schema.conversation.id, conversationId)
+        )
+      );
+    if (pinned.length >= MAX_PINNED) return { ok: false, error: "pin_limit" };
+    set.pinnedAt = new Date();
+    // Anclar una conversación archivada la devuelve a la bandeja principal.
+    set.archivedAt = null;
+  }
+  if (patch.pinned === false) set.pinnedAt = null;
+  if (patch.archived === true) {
+    set.archivedAt = new Date();
+    // Archivar desancla: las ancladas viven solo en la bandeja principal.
+    set.pinnedAt = null;
+  }
+  if (patch.archived === false) set.archivedAt = null;
 
   const updated = await db
     .update(schema.conversation)
@@ -154,7 +208,8 @@ export async function updateConversation(
       )
     )
     .returning();
-  return updated[0] ?? null;
+  const row = updated[0];
+  return row ? { ok: true, row } : { ok: false, error: "not_found" };
 }
 
 /**

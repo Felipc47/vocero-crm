@@ -13,6 +13,8 @@ export type ConversationDto = {
   windowOpen: boolean;
   windowRemainingMs: number;
   preview: string | null;
+  pinnedAt: string | null;
+  archivedAt: string | null;
 };
 
 export type MessageDto = {

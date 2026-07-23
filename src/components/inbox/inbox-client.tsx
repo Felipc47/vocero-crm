@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { ConversationDto, MessageDto } from "@/lib/types";
 import { useEvents } from "@/components/use-events";
 import { SlideOver } from "@/components/ui/slide-over";
+import { useToast } from "@/components/ui/toast";
 import { ConversationList } from "./conversation-list";
 import { MessageThread } from "./message-thread";
 import { Composer } from "./composer";
@@ -25,6 +26,7 @@ export function InboxClient() {
   // estado del agente: el panel de detalles lo observa y refetch en vivo.
   const [detailRev, setDetailRev] = useState(0);
 
+  const toast = useToast();
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
   const lastFetchRef = useRef<string | null>(null);
@@ -167,6 +169,35 @@ export function InboxClient() {
     [refetchConversations]
   );
 
+  // Ancla/desancla o archiva/desarchiva cualquier chat desde la lista. El
+  // tope de 3 anclados lo valida el servidor (422) y aquí solo se informa.
+  const pinOrArchive = useCallback(
+    async (id: string, patch: { pinned?: boolean; archived?: boolean }) => {
+      const res = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      }).catch(() => null);
+      if (!res) {
+        toast("Sin conexión con el servidor");
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        toast(data?.error?.message ?? "No se pudo actualizar el chat");
+        return;
+      }
+      if (patch.pinned !== undefined)
+        toast(patch.pinned ? "Chat anclado" : "Chat desanclado");
+      else if (patch.archived !== undefined)
+        toast(patch.archived ? "Chat archivado" : "Chat desarchivado");
+      void refetchConversations();
+    },
+    [refetchConversations, toast]
+  );
+
   // Reinicia la conversación seleccionada: borra su historial y limpia estado.
   const resetConversation = useCallback(async (): Promise<boolean> => {
     const id = selectedIdRef.current;
@@ -215,6 +246,7 @@ export function InboxClient() {
           selectedId={selectedId}
           onSelect={select}
           onSeeded={() => void refetchConversations()}
+          onPatch={(id, patch) => void pinOrArchive(id, patch)}
         />
       </section>
 

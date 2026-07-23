@@ -9,6 +9,8 @@ const patchSchema = z.object({
   aiEnabled: z.boolean().optional(),
   reactivate: z.boolean().optional(),
   markRead: z.boolean().optional(),
+  pinned: z.boolean().optional(),
+  archived: z.boolean().optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -19,7 +21,12 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   if (!body.ok) return body.response;
 
   const updated = await updateConversation(session.organizationId, id, body.data);
-  if (!updated) return apiError(404, "not_found", "Conversación no encontrada");
+  if (!updated.ok) {
+    if (updated.error === "pin_limit") {
+      return apiError(422, "pin_limit", "Solo puedes anclar hasta 3 chats");
+    }
+    return apiError(404, "not_found", "Conversación no encontrada");
+  }
 
   const row = await getConversation(session.organizationId, id);
   if (row) {
