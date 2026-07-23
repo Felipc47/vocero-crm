@@ -78,6 +78,13 @@
       "when": 1784825153778,
       "tag": "0010_wakeful_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784844125889,
+      "tag": "0011_typical_lester",
+      "breakpoints": true
     }
   ]
 }

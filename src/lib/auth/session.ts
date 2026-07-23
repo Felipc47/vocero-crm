@@ -6,6 +6,7 @@ export type SessionContext = {
   userId: string;
   organizationId: string;
   role: string;
+  isSuperadmin: boolean;
 };
 
 export class UnauthorizedError extends Error {
@@ -33,6 +34,7 @@ export async function requireSession(): Promise<SessionContext> {
     userId: session.user.id,
     organizationId: membership.organizationId,
     role: membership.role,
+    isSuperadmin: membership.isSuperadmin,
   };
 }
 

@@ -20,6 +20,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  /** Superadmin de la instancia (el primer usuario): crea empresas nuevas
+   * con su propio espacio y su admin. No pertenece al plugin organization. */
+  isSuperadmin: boolean("is_superadmin").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

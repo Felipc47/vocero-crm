@@ -24,6 +24,7 @@ export default async function AppLayout({
           userName={authSession?.user.name ?? "Usuario"}
           userImage={authSession?.user.image ?? null}
           role={session.role}
+          isSuperadmin={session.isSuperadmin}
         />
         <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
       </div>

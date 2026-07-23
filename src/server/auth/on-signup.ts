@@ -47,19 +47,31 @@ export async function onUserCreated(userId: string, userName: string) {
       userId,
       role: "owner",
     });
-    await tx.insert(schema.pipelineStage).values(
-      SEED_STAGES.map((s, i) => ({
-        id: newId("stage"),
-        organizationId: orgId,
-        name: s.name,
-        position: i,
-        kind: s.kind,
-      }))
-    );
-    await tx.insert(schema.agentProfile).values({
-      id: newId("agentProfile"),
-      organizationId: orgId,
-    });
+    await seedOrganizationDefaults(tx, orgId);
+    // El fundador de la instancia es el superadmin: podrá crear más empresas.
+    await tx
+      .update(schema.user)
+      .set({ isSuperadmin: true })
+      .where(eq(schema.user.id, userId));
+  });
+}
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+/** Siembra lo mínimo con lo que arranca toda empresa: pipeline + agente. */
+export async function seedOrganizationDefaults(tx: Tx, organizationId: string) {
+  await tx.insert(schema.pipelineStage).values(
+    SEED_STAGES.map((s, i) => ({
+      id: newId("stage"),
+      organizationId,
+      name: s.name,
+      position: i,
+      kind: s.kind,
+    }))
+  );
+  await tx.insert(schema.agentProfile).values({
+    id: newId("agentProfile"),
+    organizationId,
   });
 }
 
@@ -72,14 +84,20 @@ export async function resolveActiveOrganizationId(
 
 export async function resolveMembership(
   userId: string
-): Promise<{ organizationId: string; role: string } | null> {
+): Promise<{
+  organizationId: string;
+  role: string;
+  isSuperadmin: boolean;
+} | null> {
   const db = getDb();
   const rows = await db
     .select({
       organizationId: schema.member.organizationId,
       role: schema.member.role,
+      isSuperadmin: schema.user.isSuperadmin,
     })
     .from(schema.member)
+    .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
     .where(eq(schema.member.userId, userId))
     .limit(1);
   return rows[0] ?? null;

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Briefcase,
+  Building2,
   FileText,
   Inbox,
   Kanban,
@@ -33,11 +34,9 @@ const NAV = [
   { href: "/services", label: "Servicios", icon: Briefcase },
 ] as const;
 
-/* En mobile la sidebar no cabe: la navegación baja a una tab bar con las
-   mismas secciones más Ajustes. */
-const MOBILE_NAV = [
-  ...NAV,
-  { href: "/settings", label: "Ajustes", icon: Settings },
+/** Sección exclusiva del superadmin: administrar empresas de la instancia. */
+const SUPERADMIN_NAV = [
+  { href: "/companies", label: "Empresas", icon: Building2 },
 ] as const;
 
 const linkBase =
@@ -51,16 +50,25 @@ export function AppNav({
   userName,
   userImage,
   role,
+  isSuperadmin = false,
 }: {
   branding: Branding;
   userName: string;
   userImage?: string | null;
   role: string;
+  isSuperadmin?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [unread, setUnread] = useState(0);
+  const nav = [...NAV, ...(isSuperadmin ? SUPERADMIN_NAV : [])];
+  /* En mobile la sidebar no cabe: la navegación baja a una tab bar con las
+     mismas secciones más Ajustes. */
+  const mobileNav = [
+    ...nav,
+    { href: "/settings", label: "Ajustes", icon: Settings },
+  ];
 
   async function refetchUnread() {
     const res = await fetch("/api/conversations").catch(() => null);
@@ -143,7 +151,7 @@ export function AppNav({
       {/* Mobile: tab bar inferior. Va en el flujo (order-1 la manda al final
           del layout en columna) para no tapar contenido. */}
       <nav className="order-1 flex shrink-0 items-stretch border-t bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden">
-        {MOBILE_NAV.map((item) => {
+        {mobileNav.map((item) => {
           const active = isActive(item.href);
           return (
             <Link
@@ -192,7 +200,7 @@ export function AppNav({
         </div>
 
         <nav className="flex flex-col gap-1">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
