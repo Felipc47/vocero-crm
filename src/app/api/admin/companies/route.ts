@@ -5,6 +5,7 @@ import { getAuth, runInternalSignup } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { seedOrganizationDefaults } from "@/server/auth/on-signup";
+import { purgeDate, purgeExpiredCompanies } from "@/server/admin/companies";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,16 @@ export const GET = withAuth(async (session) => {
   if (!session.isSuperadmin) {
     return apiError(403, "forbidden", "Solo el superadmin administra empresas");
   }
+  // Limpieza perezosa: purga los respaldos que ya cumplieron sus 30 días.
+  await purgeExpiredCompanies().catch(() => {});
+
   const db = getDb();
   const orgs = await db
     .select({
       id: schema.organization.id,
       name: schema.organization.name,
       createdAt: schema.organization.createdAt,
+      deletedAt: schema.organization.deletedAt,
     })
     .from(schema.organization)
     .orderBy(schema.organization.createdAt);
@@ -59,6 +64,7 @@ export const GET = withAuth(async (session) => {
   for (const o of owners) if (!adminBy.has(o.orgId)) adminBy.set(o.orgId, o.email);
 
   return Response.json({
+    ownOrganizationId: session.organizationId,
     companies: orgs.map((o) => ({
       id: o.id,
       name: o.name,
@@ -67,6 +73,8 @@ export const GET = withAuth(async (session) => {
       contacts: contactsBy.get(o.id) ?? 0,
       whatsappConnected: connected.has(o.id),
       adminEmail: adminBy.get(o.id) ?? null,
+      deletedAt: o.deletedAt?.toISOString() ?? null,
+      purgeAt: o.deletedAt ? purgeDate(o.deletedAt).toISOString() : null,
     })),
   });
 });

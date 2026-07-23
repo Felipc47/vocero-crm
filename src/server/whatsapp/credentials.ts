@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
@@ -39,12 +39,23 @@ export async function getCredentialsByPhoneNumberId(
   phoneNumberId: string
 ): Promise<Credentials | null> {
   const db = getDb();
+  // Empresa eliminada (respaldo 30 días): su webhook deja de procesar — ni
+  // ingesta ni turnos del agente; el espacio queda congelado.
   const rows = await db
-    .select()
+    .select({ credentials: schema.metaCredentials })
     .from(schema.metaCredentials)
-    .where(eq(schema.metaCredentials.phoneNumberId, phoneNumberId))
+    .innerJoin(
+      schema.organization,
+      eq(schema.metaCredentials.organizationId, schema.organization.id)
+    )
+    .where(
+      and(
+        eq(schema.metaCredentials.phoneNumberId, phoneNumberId),
+        isNull(schema.organization.deletedAt)
+      )
+    )
     .limit(1);
-  return rows[0] ? toCredentials(rows[0]) : null;
+  return rows[0] ? toCredentials(rows[0].credentials) : null;
 }
 
 /** Resuelve la conexión por WABA ID (eventos a nivel WABA, ej. plantillas). */

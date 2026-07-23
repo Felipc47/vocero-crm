@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ArchiveRestore,
   Building2,
   Check,
   Copy,
   Plus,
   RefreshCw,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -22,6 +24,8 @@ type CompanyDto = {
   contacts: number;
   whatsappConnected: boolean;
   adminEmail: string | null;
+  deletedAt: string | null;
+  purgeAt: string | null;
 };
 
 function randomPassword(): string {
@@ -175,6 +179,92 @@ function NewCompanyDialog({
   );
 }
 
+/**
+ * Segunda confirmación de borrado: exige escribir el nombre exacto de la
+ * empresa. Explica que el respaldo dura 30 días y se puede restaurar.
+ */
+function DeleteCompanyDialog({
+  company,
+  onClose,
+  onDeleted,
+}: {
+  company: CompanyDto;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const match = typed.trim() === company.name;
+
+  async function confirm() {
+    if (!match || busy) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/companies/${company.id}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo eliminar la empresa");
+      return;
+    }
+    onDeleted();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-label={`Eliminar ${company.name}`}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border bg-surface p-6 shadow-xl"
+      >
+        <h2 className="mb-2 font-display text-lg font-bold">
+          ¿Eliminar «{company.name}»?
+        </h2>
+        <p className="mb-1 text-[13px] leading-relaxed text-text-2">
+          Sus usuarios pierden el acceso y su WhatsApp deja de procesar de
+          inmediato. Los datos quedan de <b>respaldo por 30 días</b> — en ese
+          plazo puedes restaurarla tal cual estaba. Después se borran
+          definitivamente.
+        </p>
+        <p className="mb-2 mt-3 text-[12.5px] font-bold text-text-2">
+          Para confirmar, escribe el nombre exacto de la empresa:
+        </p>
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={company.name}
+          className="mb-3 w-full rounded-[11px] border bg-surface-2 px-3.5 py-[10px] text-[14px] outline-none transition-colors focus:border-brand focus:bg-background focus:ring-[3px] focus:ring-brand-soft"
+        />
+        {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <button
+            disabled={!match || busy}
+            onClick={() => void confirm()}
+            className={cn(
+              "rounded-[10px] bg-destructive px-4 py-2 text-[13px] font-bold text-white transition-opacity",
+              (!match || busy) && "opacity-40"
+            )}
+          >
+            {busy ? "Eliminando…" : "Eliminar empresa"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Credenciales recién creadas: visibles UNA vez para copiar y compartir. */
 function CreatedBanner({
   summary,
@@ -223,8 +313,11 @@ function CreatedBanner({
 }
 
 export function CompaniesClient() {
+  const toast = useToast();
   const [companies, setCompanies] = useState<CompanyDto[] | null>(null);
+  const [ownOrgId, setOwnOrgId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<CompanyDto | null>(null);
   const [created, setCreated] = useState<{
     name: string;
     email: string;
@@ -234,9 +327,28 @@ export function CompaniesClient() {
   const refetch = useCallback(async () => {
     const res = await fetch("/api/admin/companies").catch(() => null);
     if (!res?.ok) return;
-    const data = (await res.json()) as { companies: CompanyDto[] };
+    const data = (await res.json()) as {
+      companies: CompanyDto[];
+      ownOrganizationId: string;
+    };
     setCompanies(data.companies);
+    setOwnOrgId(data.ownOrganizationId);
   }, []);
+
+  const restore = useCallback(
+    async (company: CompanyDto) => {
+      const res = await fetch(`/api/admin/companies/${company.id}/restore`, {
+        method: "POST",
+      }).catch(() => null);
+      toast(
+        res?.ok
+          ? `«${company.name}» restaurada: su acceso y su WhatsApp vuelven a funcionar`
+          : "No se pudo restaurar la empresa"
+      );
+      void refetch();
+    },
+    [refetch, toast]
+  );
 
   useEffect(() => {
     void refetch();
@@ -270,9 +382,19 @@ export function CompaniesClient() {
             {companies.map((c) => (
               <li
                 key={c.id}
-                className="flex items-center gap-4 rounded-[15px] border bg-surface px-5 py-4"
+                className={cn(
+                  "flex items-center gap-4 rounded-[15px] border bg-surface px-5 py-4",
+                  c.deletedAt && "opacity-80"
+                )}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-brand-tint text-brand">
+                <span
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]",
+                    c.deletedAt
+                      ? "bg-surface-2 text-mute"
+                      : "bg-brand-tint text-brand"
+                  )}
+                >
                   <Building2 className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -280,31 +402,63 @@ export function CompaniesClient() {
                     {c.name}
                   </span>
                   <span className="block truncate text-[12.5px] text-text-3">
-                    {c.adminEmail ?? "sin admin"} · desde{" "}
-                    {new Date(c.createdAt).toLocaleDateString("es-CO", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {c.deletedAt && c.purgeAt
+                      ? `Eliminada — respaldo hasta el ${new Date(
+                          c.purgeAt
+                        ).toLocaleDateString("es-CO", {
+                          day: "numeric",
+                          month: "long",
+                        })}`
+                      : `${c.adminEmail ?? "sin admin"} · desde ${new Date(
+                          c.createdAt
+                        ).toLocaleDateString("es-CO", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}`}
                   </span>
                 </span>
-                <span className="hidden items-center gap-1.5 text-[12.5px] font-semibold text-mute sm:flex">
-                  <Users className="h-4 w-4" strokeWidth={2} />
-                  {c.members}
-                </span>
-                <span className="hidden text-[12.5px] font-semibold text-mute sm:block">
-                  {c.contacts} contactos
-                </span>
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-[11px] font-extrabold",
-                    c.whatsappConnected
-                      ? "bg-success/15 text-success"
-                      : "bg-surface-2 text-mute"
-                  )}
-                >
-                  {c.whatsappConnected ? "WhatsApp ✓" : "Sin WhatsApp"}
-                </span>
+                {c.deletedAt ? (
+                  <>
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[11px] font-extrabold text-destructive">
+                      Eliminada
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => void restore(c)}>
+                      <ArchiveRestore className="h-4 w-4" strokeWidth={2} />
+                      Restaurar
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden items-center gap-1.5 text-[12.5px] font-semibold text-mute sm:flex">
+                      <Users className="h-4 w-4" strokeWidth={2} />
+                      {c.members}
+                    </span>
+                    <span className="hidden text-[12.5px] font-semibold text-mute sm:block">
+                      {c.contacts} contactos
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[11px] font-extrabold",
+                        c.whatsappConnected
+                          ? "bg-success/15 text-success"
+                          : "bg-surface-2 text-mute"
+                      )}
+                    >
+                      {c.whatsappConnected ? "WhatsApp ✓" : "Sin WhatsApp"}
+                    </span>
+                    {c.id !== ownOrgId && (
+                      <button
+                        aria-label={`Eliminar ${c.name}`}
+                        title="Eliminar empresa"
+                        onClick={() => setDeleting(c)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-destructive/30 text-destructive transition-colors hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    )}
+                  </>
+                )}
               </li>
             ))}
           </ul>
@@ -317,6 +471,20 @@ export function CompaniesClient() {
           onCreated={(summary) => {
             setCreating(false);
             setCreated(summary);
+            void refetch();
+          }}
+        />
+      )}
+
+      {deleting && (
+        <DeleteCompanyDialog
+          company={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            setDeleting(null);
+            toast(
+              `«${deleting.name}» eliminada — respaldo disponible por 30 días`
+            );
             void refetch();
           }}
         />

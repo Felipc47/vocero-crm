@@ -75,6 +75,9 @@ export const organization = pgTable("organization", {
   logo: text("logo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   metadata: text("metadata"),
+  /** Borrado suave: la empresa queda suspendida (sin acceso ni webhook) y sus
+   * datos se conservan como respaldo 30 días antes de la purga definitiva. */
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const member = pgTable("member", {

@@ -1,4 +1,4 @@
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 
@@ -98,7 +98,17 @@ export async function resolveMembership(
     })
     .from(schema.member)
     .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
-    .where(eq(schema.member.userId, userId))
+    .innerJoin(
+      schema.organization,
+      eq(schema.member.organizationId, schema.organization.id)
+    )
+    // Empresa eliminada (respaldo 30 días): sus miembros quedan sin acceso.
+    .where(
+      and(
+        eq(schema.member.userId, userId),
+        isNull(schema.organization.deletedAt)
+      )
+    )
     .limit(1);
   return rows[0] ?? null;
 }
