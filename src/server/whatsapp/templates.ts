@@ -81,21 +81,18 @@ export function serializeTemplate(t: TemplateRow) {
   };
 }
 
-/** Crea la plantilla y la manda a aprobación de Meta (FR-050). */
+/**
+ * Crea la plantilla. Camino normal (admin): se manda a aprobación de Meta
+ * (FR-050). Con `requiresApproval` (comercial): queda LOCAL en
+ * `awaiting_approval` — jamás toca Meta hasta que un admin la apruebe.
+ */
 export async function createTemplate(
   organizationId: string,
-  input: { name: string; language: string; category: string; body: string }
+  input: { name: string; language: string; category: string; body: string },
+  opts: { requiresApproval?: boolean; requestedById?: string | null } = {}
 ): Promise<TemplateRow> {
   const variableError = validateBodyVariables(input.body);
   if (variableError) throw new TemplateError("invalid", variableError);
-
-  const creds = await getCredentialsByOrg(organizationId);
-  if (!creds) {
-    throw new TemplateError("not_connected", "Conecta tu número de WhatsApp primero");
-  }
-  if (creds.status === "reconnect_required") {
-    throw new TemplateError("reconnect_required", "Reconecta tu número antes de crear plantillas");
-  }
 
   const name = input.name
     .toLowerCase()
@@ -103,45 +100,18 @@ export async function createTemplate(
     .replace(/[^a-z0-9_]/g, "");
   if (!name) throw new TemplateError("invalid", "Nombre de plantilla inválido");
 
-  const hasVariable = countVariables(input.body) === 1;
   let waTemplateId: string | null = null;
-  try {
-    const res = await graphRequest<{ id?: string; status?: string }>(
-      `${creds.wabaId}/message_templates`,
-      {
-        method: "POST",
-        token: creds.token,
-        body: {
-          name,
-          language: input.language,
-          category: input.category,
-          components: [
-            {
-              type: "BODY",
-              text: input.body,
-              ...(hasVariable
-                ? { example: { body_text: [["ejemplo"]] } }
-                : {}),
-            },
-          ],
-        },
-      }
-    );
-    waTemplateId = res.id ?? null;
-  } catch (err) {
-    if (err instanceof MetaApiError) {
-      if (err.isAuthError) {
-        await markReconnectRequired(organizationId);
-        throw new TemplateError("reconnect_required", "El token expiró: reconecta el número");
-      }
-      if (err.status === 0 || err.status >= 500) {
-        throw new TemplateError("meta_unavailable", "Meta no está disponible ahora");
-      }
-      throw new TemplateError("meta_error", err.message);
-    }
-    throw err;
+  if (!opts.requiresApproval) {
+    const creds = await requireConnectedCredentials(organizationId);
+    waTemplateId = await pushCreateToMeta(organizationId, creds, {
+      name,
+      language: input.language,
+      category: input.category,
+      body: input.body,
+    });
   }
 
+  const status = opts.requiresApproval ? "awaiting_approval" : "pending";
   const db = getDb();
   const inserted = await db
     .insert(schema.template)
@@ -152,7 +122,8 @@ export async function createTemplate(
       language: input.language,
       category: input.category,
       body: input.body,
-      status: "pending",
+      status,
+      requestedById: opts.requestedById ?? null,
       waTemplateId,
     })
     .onConflictDoUpdate({
@@ -164,14 +135,60 @@ export async function createTemplate(
       set: {
         category: input.category,
         body: input.body,
-        status: "pending",
+        status,
         rejectionReason: null,
-        waTemplateId,
+        requestedById: opts.requestedById ?? null,
+        ...(waTemplateId ? { waTemplateId } : {}),
         updatedAt: new Date(),
       },
     })
     .returning();
   return inserted[0]!;
+}
+
+async function requireConnectedCredentials(organizationId: string) {
+  const creds = await getCredentialsByOrg(organizationId);
+  if (!creds) {
+    throw new TemplateError("not_connected", "Conecta tu número de WhatsApp primero");
+  }
+  if (creds.status === "reconnect_required") {
+    throw new TemplateError("reconnect_required", "Reconecta tu número antes de continuar");
+  }
+  return creds;
+}
+
+/** Alta real en Meta (`POST {waba}/message_templates`) → id remoto. */
+async function pushCreateToMeta(
+  organizationId: string,
+  creds: NonNullable<Awaited<ReturnType<typeof getCredentialsByOrg>>>,
+  tpl: { name: string; language: string; category: string; body: string }
+): Promise<string | null> {
+  const hasVariable = countVariables(tpl.body) === 1;
+  try {
+    const res = await graphRequest<{ id?: string; status?: string }>(
+      `${creds.wabaId}/message_templates`,
+      {
+        method: "POST",
+        token: creds.token,
+        body: {
+          name: tpl.name,
+          language: tpl.language,
+          category: tpl.category,
+          components: [
+            {
+              type: "BODY",
+              text: tpl.body,
+              ...(hasVariable ? { example: { body_text: [["ejemplo"]] } } : {}),
+            },
+          ],
+        },
+      }
+    );
+    return res.id ?? null;
+  } catch (err) {
+    await toTemplateError(organizationId, err);
+    return null; // inalcanzable: toTemplateError siempre lanza
+  }
 }
 
 /** Localiza una plantilla de la organización o lanza `not_found`. */
@@ -266,30 +283,73 @@ export async function deleteTemplate(
 export async function updateTemplate(
   organizationId: string,
   templateId: string,
-  input: { body: string; category: string }
+  input: { body: string; category: string },
+  opts: { requiresApproval?: boolean; requestedById?: string | null } = {}
 ): Promise<TemplateRow> {
   const variableError = validateBodyVariables(input.body);
   if (variableError) throw new TemplateError("invalid", variableError);
 
   const template = await requireTemplate(organizationId, templateId);
-  if (!template.waTemplateId) {
-    throw new TemplateError(
-      "invalid",
-      "Esta plantilla no tiene id de Meta: sincroniza, o bórrala y créala de nuevo"
-    );
+  const db = getDb();
+
+  // Comercial: el cambio queda local esperando el visto bueno del admin.
+  if (opts.requiresApproval) {
+    const updated = await db
+      .update(schema.template)
+      .set({
+        body: input.body,
+        category: input.category,
+        status: "awaiting_approval",
+        rejectionReason: null,
+        requestedById: opts.requestedById ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.template.id, template.id))
+      .returning();
+    return updated[0]!;
   }
 
-  const creds = await getCredentialsByOrg(organizationId);
-  if (!creds) {
-    throw new TemplateError("not_connected", "Conecta tu número de WhatsApp primero");
-  }
-  if (creds.status === "reconnect_required") {
-    throw new TemplateError("reconnect_required", "Reconecta tu número antes de editar");
+  const creds = await requireConnectedCredentials(organizationId);
+  if (template.waTemplateId) {
+    await pushEditToMeta(organizationId, creds, template.waTemplateId, input);
+  } else {
+    // Nunca llegó a Meta (nació esperando aprobación): se crea allá ahora.
+    const waTemplateId = await pushCreateToMeta(organizationId, creds, {
+      name: template.name,
+      language: template.language,
+      category: input.category,
+      body: input.body,
+    });
+    await db
+      .update(schema.template)
+      .set({ waTemplateId })
+      .where(eq(schema.template.id, template.id));
   }
 
+  const updated = await db
+    .update(schema.template)
+    .set({
+      body: input.body,
+      category: input.category,
+      status: "pending",
+      rejectionReason: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.template.id, template.id))
+    .returning();
+  return updated[0]!;
+}
+
+/** Edición real en Meta (`POST {template_id}`); vuelve a revisión allá. */
+async function pushEditToMeta(
+  organizationId: string,
+  creds: NonNullable<Awaited<ReturnType<typeof getCredentialsByOrg>>>,
+  waTemplateId: string,
+  input: { body: string; category: string }
+): Promise<void> {
   const hasVariable = countVariables(input.body) === 1;
   try {
-    await graphRequest(`${template.waTemplateId}`, {
+    await graphRequest(`${waTemplateId}`, {
       method: "POST",
       token: creds.token,
       body: {
@@ -306,15 +366,68 @@ export async function updateTemplate(
   } catch (err) {
     await toTemplateError(organizationId, err);
   }
+}
 
+/**
+ * Aprobación interna: un admin (o el superadmin) da el visto bueno a una
+ * plantilla `awaiting_approval` y AHÍ recién viaja a Meta (alta o edición
+ * según tenga o no id remoto). Devuelve la fila ya `pending` de Meta.
+ */
+export async function submitTemplate(
+  organizationId: string,
+  templateId: string
+): Promise<TemplateRow> {
+  const template = await requireTemplate(organizationId, templateId);
+  if (template.status !== "awaiting_approval") {
+    throw new TemplateError("invalid", "La plantilla no está pendiente de aprobación");
+  }
+  const creds = await requireConnectedCredentials(organizationId);
+
+  const db = getDb();
+  let waTemplateId = template.waTemplateId;
+  if (waTemplateId) {
+    await pushEditToMeta(organizationId, creds, waTemplateId, {
+      body: template.body,
+      category: template.category,
+    });
+  } else {
+    waTemplateId = await pushCreateToMeta(organizationId, creds, {
+      name: template.name,
+      language: template.language,
+      category: template.category,
+      body: template.body,
+    });
+  }
+
+  const updated = await db
+    .update(schema.template)
+    .set({
+      status: "pending",
+      rejectionReason: null,
+      waTemplateId,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.template.id, template.id))
+    .returning();
+  return updated[0]!;
+}
+
+/** Rechazo interno: vuelve a borrador local, con el motivo del admin. */
+export async function rejectTemplateInternally(
+  organizationId: string,
+  templateId: string,
+  reason: string | null
+): Promise<TemplateRow> {
+  const template = await requireTemplate(organizationId, templateId);
+  if (template.status !== "awaiting_approval") {
+    throw new TemplateError("invalid", "La plantilla no está pendiente de aprobación");
+  }
   const db = getDb();
   const updated = await db
     .update(schema.template)
     .set({
-      body: input.body,
-      category: input.category,
-      status: "pending",
-      rejectionReason: null,
+      status: "draft",
+      rejectionReason: reason,
       updatedAt: new Date(),
     })
     .where(eq(schema.template.id, template.id))

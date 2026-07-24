@@ -22,6 +22,7 @@ const prefixes = {
   serviceForm: "sform",
   campaign: "cmp",
   campaignRecipient: "crp",
+  notification: "ntf",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

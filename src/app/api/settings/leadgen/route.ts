@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { parseBody, withAuth } from "@/lib/api";
+import { apiError, parseBody, withAuth } from "@/lib/api";
 import {
   getLeadgenSettings,
   saveLeadgenSettings,
 } from "@/server/org-settings";
+import { canManageOrgSettings } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ const putSchema = z.object({
 });
 
 export const PUT = withAuth(async (session, req: Request) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin de la empresa puede configurar esto");
+  }
   const body = await parseBody(req, putSchema);
   if (!body.ok) return body.response;
   await saveLeadgenSettings(session.organizationId, body.data);

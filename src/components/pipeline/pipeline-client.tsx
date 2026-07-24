@@ -98,7 +98,9 @@ export function PipelineClient() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b bg-surface px-4 py-3 md:px-7 md:py-[18px]">
-        <h2 className="font-display text-[22px] font-bold">Pipeline</h2>
+        <h2 className="font-display text-[22px] font-bold">
+          Etapas del prospecto
+        </h2>
         <div className="order-last flex w-full items-center gap-2 rounded-[10px] border bg-surface-2 px-3 py-[8px] transition-colors focus-within:border-brand focus-within:bg-background focus-within:ring-[3px] focus-within:ring-brand-soft md:order-none md:w-auto md:max-w-[300px] md:flex-1">
           <Search className="h-4 w-4 shrink-0 text-faint" strokeWidth={2} />
           <input

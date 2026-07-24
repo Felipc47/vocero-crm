@@ -3,6 +3,7 @@ import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getSessionOrNull } from "@/lib/auth/session";
 import { isValidHex, resolveAccentSet } from "@/lib/branding";
 import { getBranding, saveBranding } from "@/server/branding";
+import { canManageOrgSettings } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ const putSchema = z.object({
 });
 
 export const PUT = withAuth(async (session, req: Request) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin de la empresa puede configurar esto");
+  }
   if (session.role !== "owner") {
     return apiError(403, "forbidden", "Solo el propietario puede cambiar la marca");
   }

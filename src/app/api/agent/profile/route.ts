@@ -3,10 +3,14 @@ import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { isAiConfigured } from "@/lib/env";
+import { canEditAgent } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (session) => {
+  if (!canEditAgent(session.role)) {
+    return apiError(403, "forbidden", "Tu rol no tiene acceso a la configuración del agente");
+  }
   const db = getDb();
   const rows = await db
     .select()
@@ -40,6 +44,9 @@ const putSchema = z.object({
 });
 
 export const PUT = withAuth(async (session, req: Request) => {
+  if (!canEditAgent(session.role)) {
+    return apiError(403, "forbidden", "Tu rol no tiene acceso a la configuración del agente");
+  }
   const body = await parseBody(req, putSchema);
   if (!body.ok) return body.response;
 

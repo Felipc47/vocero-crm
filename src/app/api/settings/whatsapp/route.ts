@@ -6,6 +6,7 @@ import {
   tokenLast4,
 } from "@/server/whatsapp/credentials";
 import { subscribeAppToWaba, testConnection } from "@/server/whatsapp/connect";
+import { canManageOrgSettings } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,9 @@ const putSchema = z.object({
 
 /** Guarda la conexión: re-valida contra Meta, cifra y suscribe (FR-040). */
 export const PUT = withAuth(async (session, req: Request) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin de la empresa puede configurar esto");
+  }
   const body = await parseBody(req, putSchema);
   if (!body.ok) return body.response;
 

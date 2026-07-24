@@ -36,7 +36,12 @@ type DetectedForm = {
  * el lead de sus formularios; sin vínculo aplica el saludo global de
  * Ajustes → Plantillas.
  */
-export function ServicesClient() {
+export function ServicesClient({
+  canLinkForms = true,
+}: {
+  /** Vincular/desvincular formularios de Meta es del admin. */
+  canLinkForms?: boolean;
+}) {
   const toast = useToast();
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [detected, setDetected] = useState<DetectedForm[]>([]);
@@ -214,13 +219,15 @@ export function ServicesClient() {
                       className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-bold text-mute"
                     >
                       Form {f}
-                      <button
-                        aria-label={`Desvincular formulario ${f}`}
-                        onClick={() => void unlinkForm(svc.id, f)}
-                        className="text-faint transition-colors hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      </button>
+                      {canLinkForms && (
+                        <button
+                          aria-label={`Desvincular formulario ${f}`}
+                          onClick={() => void unlinkForm(svc.id, f)}
+                          className="text-faint transition-colors hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" strokeWidth={2.4} />
+                        </button>
+                      )}
                     </span>
                   ))}
                   {svc.forms.length === 0 && (
@@ -230,14 +237,16 @@ export function ServicesClient() {
                   )}
                 </div>
 
-                <AddFormInline onLink={(formId) => void linkForm(svc.id, formId)} />
+                {canLinkForms && (
+                  <AddFormInline onLink={(formId) => void linkForm(svc.id, formId)} />
+                )}
               </li>
             ))}
           </ul>
         </CardContent>
       </Card>
 
-      {unlinked.length > 0 && services.length > 0 && (
+      {canLinkForms && unlinked.length > 0 && services.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Formularios detectados sin vincular</CardTitle>

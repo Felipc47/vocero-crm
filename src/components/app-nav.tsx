@@ -19,19 +19,22 @@ import {
   Users,
 } from "lucide-react";
 import type { Branding } from "@/lib/branding";
+import { normalizeRole, ROLE_LABELS } from "@/lib/permissions";
 import { cn, initials } from "@/lib/utils";
 import { signOut } from "@/lib/auth/client";
 import { useEvents } from "@/components/use-events";
 import { useTheme } from "@/components/use-theme";
+import { NotificationsBell } from "@/components/notifications-bell";
 
+/** Cada item declara qué roles lo ven (ver src/lib/permissions.ts). */
 const NAV = [
-  { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true },
-  { href: "/pipeline", label: "Pipeline", icon: Kanban },
-  { href: "/contacts", label: "Contactos", icon: Users },
-  { href: "/agent", label: "Agente", icon: Sparkles },
-  { href: "/templates", label: "Plantillas", icon: FileText },
-  { href: "/campaigns", label: "Envío masivo", icon: Megaphone },
-  { href: "/services", label: "Servicios", icon: Briefcase },
+  { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true, roles: ["owner", "agent_editor", "commercial"] },
+  { href: "/pipeline", label: "Etapas del prospecto", icon: Kanban, roles: ["owner", "commercial"] },
+  { href: "/contacts", label: "Contactos", icon: Users, roles: ["owner", "commercial"] },
+  { href: "/agent", label: "Agente", icon: Sparkles, roles: ["owner", "agent_editor"] },
+  { href: "/templates", label: "Plantillas", icon: FileText, roles: ["owner", "commercial"] },
+  { href: "/campaigns", label: "Envío masivo", icon: Megaphone, roles: ["owner", "commercial"] },
+  { href: "/services", label: "Servicios", icon: Briefcase, roles: ["owner", "commercial"] },
 ] as const;
 
 /** Sección exclusiva del superadmin: administrar empresas de la instancia. */
@@ -62,7 +65,11 @@ export function AppNav({
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [unread, setUnread] = useState(0);
-  const nav = [...NAV, ...(isSuperadmin ? SUPERADMIN_NAV : [])];
+  const normalizedRole = normalizeRole(role);
+  const nav = [
+    ...NAV.filter((i) => (i.roles as readonly string[]).includes(normalizedRole)),
+    ...(isSuperadmin ? SUPERADMIN_NAV : []),
+  ];
   /* En mobile la sidebar no cabe: la navegación baja a una tab bar con las
      mismas secciones más Ajustes. */
   const mobileNav = [
@@ -113,6 +120,7 @@ export function AppNav({
         <span className="min-w-0 flex-1 truncate font-display text-[15px] font-bold tracking-tight">
           {branding.name}
         </span>
+        <NotificationsBell variant="header" />
         <button
           onClick={toggle}
           aria-label={theme === "dark" ? "Modo claro" : "Modo oscuro"}
@@ -228,6 +236,7 @@ export function AppNav({
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5">
+          <NotificationsBell variant="sidebar" />
           <button
             onClick={toggle}
             className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-bold text-foreground transition-colors hover:bg-surface-2"
@@ -272,7 +281,7 @@ export function AppNav({
               </span>
               <span className="flex items-center gap-1.5 text-[11px] text-mute">
                 <span className="h-[7px] w-[7px] rounded-full bg-success" />
-                {role === "owner" ? "Propietario" : "Equipo"} · En línea
+                {ROLE_LABELS[normalizedRole]} · En línea
               </span>
             </span>
             <button

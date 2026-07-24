@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseBody, withAuth } from "@/lib/api";
+import { apiError, parseBody, withAuth } from "@/lib/api";
 import { isGoogleConfigured } from "@/lib/env";
 import {
   getCalendarSettings,
@@ -9,11 +9,16 @@ import {
   deleteGoogleConnection,
   getGoogleConnection,
 } from "@/server/google/credentials";
+import { canEditAgent, canManageOrgSettings } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 /** Estado de la conexión + settings de agendamiento (Ajustes → Calendario). */
 export const GET = withAuth(async (session) => {
+  // Lectura: también el editor de agente (la usa Agente → Agendamiento).
+  if (!canEditAgent(session.role)) {
+    return apiError(403, "forbidden", "Tu rol no tiene acceso a esta configuración");
+  }
   const [connection, settings] = await Promise.all([
     getGoogleConnection(session.organizationId),
     getCalendarSettings(session.organizationId),
@@ -40,6 +45,9 @@ const putSchema = z.object({
 });
 
 export const PUT = withAuth(async (session, req: Request) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin de la empresa puede configurar esto");
+  }
   const body = await parseBody(req, putSchema);
   if (!body.ok) return body.response;
   const current = await getCalendarSettings(session.organizationId);
@@ -53,6 +61,9 @@ export const PUT = withAuth(async (session, req: Request) => {
 
 /** Desconecta la cuenta de Google (borra el refresh token cifrado). */
 export const DELETE = withAuth(async (session) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin de la empresa puede configurar esto");
+  }
   await deleteGoogleConnection(session.organizationId);
   return Response.json({ ok: true });
 });

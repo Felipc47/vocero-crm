@@ -179,6 +179,119 @@ function NewCompanyDialog({
   );
 }
 
+type MemberDto = {
+  id: string;
+  role: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Admin",
+  agent_editor: "Editor de agente",
+  commercial: "Ejecutivo comercial y marketing",
+  member: "Ejecutivo comercial y marketing",
+};
+
+/** Equipo de una empresa: el superadmin ve y asigna roles de cualquiera. */
+function TeamDialog({
+  company,
+  onClose,
+}: {
+  company: CompanyDto;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const [members, setMembers] = useState<MemberDto[] | null>(null);
+
+  const refetch = useCallback(async () => {
+    const res = await fetch(`/api/admin/companies/${company.id}/members`).catch(
+      () => null
+    );
+    if (!res?.ok) return;
+    const data = (await res.json()) as { members: MemberDto[] };
+    setMembers(data.members);
+  }, [company.id]);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  async function changeRole(memberId: string, role: string) {
+    const res = await fetch(`/api/admin/companies/${company.id}/members`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ memberId, role }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      toast(data?.error?.message ?? "No se pudo cambiar el rol");
+    }
+    void refetch();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-label={`Equipo de ${company.name}`}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl border bg-surface p-6 shadow-xl"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold">
+            Equipo de {company.name}
+          </h2>
+          <button
+            aria-label="Cerrar"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-mute transition-colors hover:bg-subtle hover:text-foreground"
+          >
+            <X className="h-4 w-4" strokeWidth={2.2} />
+          </button>
+        </div>
+        {members === null ? (
+          <p className="py-6 text-center text-sm text-text-3">Cargando…</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {members.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center gap-3 rounded-[12px] border bg-surface-2 px-3.5 py-2.5"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-bold">
+                    {m.name}
+                  </span>
+                  <span className="block truncate text-[12px] text-text-3">
+                    {m.email}
+                  </span>
+                </span>
+                <select
+                  aria-label={`Rol de ${m.name}`}
+                  value={m.role === "member" ? "commercial" : m.role}
+                  onChange={(e) => void changeRole(m.id, e.target.value)}
+                  className="rounded-md border bg-background px-2 py-1.5 text-xs font-semibold outline-none focus:border-brand"
+                >
+                  <option value="owner">{ROLE_LABELS.owner}</option>
+                  <option value="agent_editor">{ROLE_LABELS.agent_editor}</option>
+                  <option value="commercial">{ROLE_LABELS.commercial}</option>
+                </select>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Segunda confirmación de borrado: exige escribir el nombre exacto de la
  * empresa. Explica que el respaldo dura 30 días y se puede restaurar.
@@ -318,6 +431,7 @@ export function CompaniesClient() {
   const [ownOrgId, setOwnOrgId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<CompanyDto | null>(null);
+  const [teamOf, setTeamOf] = useState<CompanyDto | null>(null);
   const [created, setCreated] = useState<{
     name: string;
     email: string;
@@ -430,10 +544,14 @@ export function CompaniesClient() {
                   </>
                 ) : (
                   <>
-                    <span className="hidden items-center gap-1.5 text-[12.5px] font-semibold text-mute sm:flex">
+                    <button
+                      onClick={() => setTeamOf(c)}
+                      title="Ver y asignar roles del equipo"
+                      className="hidden items-center gap-1.5 rounded-[9px] border bg-surface-2 px-2.5 py-1.5 text-[12.5px] font-semibold text-mute transition-colors hover:text-foreground sm:flex"
+                    >
                       <Users className="h-4 w-4" strokeWidth={2} />
                       {c.members}
-                    </span>
+                    </button>
                     <span className="hidden text-[12.5px] font-semibold text-mute sm:block">
                       {c.contacts} contactos
                     </span>
@@ -475,6 +593,8 @@ export function CompaniesClient() {
           }}
         />
       )}
+
+      {teamOf && <TeamDialog company={teamOf} onClose={() => setTeamOf(null)} />}
 
       {deleting && (
         <DeleteCompanyDialog

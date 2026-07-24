@@ -1,0 +1,7 @@
+[mcp_servers.coolify]
+command = "npx"
+args = ["@masonator/coolify-mcp@latest"]
+
+[mcp_servers.coolify.env]
+COOLIFY_BASE_URL = "http://179.197.226.44:8000"
+COOLIFY_ACCESS_TOKEN = "2|WosXNAxHbVNhCWPaRMptmhFBjwrLVgJZgT8pKY8y2f46bd75"

@@ -5,19 +5,21 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/settings/profile", label: "Perfil" },
-  { href: "/settings/whatsapp", label: "WhatsApp" },
-  { href: "/settings/calendar", label: "Calendario" },
-  { href: "/settings/branding", label: "Marca" },
-  { href: "/settings/team", label: "Equipo" },
+  { href: "/settings/profile", label: "Perfil", adminOnly: false },
+  { href: "/settings/whatsapp", label: "WhatsApp", adminOnly: true },
+  { href: "/settings/calendar", label: "Calendario", adminOnly: true },
+  { href: "/settings/branding", label: "Marca", adminOnly: true },
+  { href: "/settings/team", label: "Equipo", adminOnly: true },
 ] as const;
 
-export function SettingsNav() {
+/** Los roles no-admin solo ven los ajustes de su propia cuenta (Perfil). */
+export function SettingsNav({ isAdmin = true }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
   return (
     /* Mobile: tabs horizontales con scroll; desktop: columna lateral de 210px. */
     <nav className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2 md:w-[210px] md:flex-col md:overflow-visible md:border-b-0 md:border-r md:px-4 md:py-[22px]">
-      {TABS.map((t) => {
+      {tabs.map((t) => {
         const active = pathname.startsWith(t.href);
         return (
           <Link

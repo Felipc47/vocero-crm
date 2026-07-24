@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { ContactAvatar } from "@/components/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,10 +16,19 @@ type Member = {
   createdAt: string;
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Admin",
+  agent_editor: "Editor de agente",
+  commercial: "Ejecutivo comercial y marketing",
+  member: "Ejecutivo comercial y marketing",
+};
+
 export function TeamClient() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [limit, setLimit] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState("commercial");
   const [tempPassword, setTempPassword] = useState("");
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +37,12 @@ export function TeamClient() {
   const refetch = useCallback(async () => {
     const res = await fetch("/api/settings/team").catch(() => null);
     if (!res?.ok) return;
-    const data = (await res.json()) as { members: Member[] };
+    const data = (await res.json()) as {
+      members: Member[];
+      limit: number | null;
+    };
     setMembers(data.members);
+    setLimit(data.limit);
   }, []);
 
   useEffect(() => {
@@ -47,6 +59,23 @@ export function TeamClient() {
     );
   }
 
+  async function changeRole(memberId: string, newRole: string) {
+    const res = await fetch(`/api/settings/team/${memberId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo cambiar el rol");
+    } else {
+      setError(null);
+    }
+    void refetch();
+  }
+
   async function create() {
     setSaving(true);
     setError(null);
@@ -54,7 +83,7 @@ export function TeamClient() {
     const res = await fetch("/api/settings/team", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, email, password: tempPassword }),
+      body: JSON.stringify({ name, email, password: tempPassword, role }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) {
@@ -102,6 +131,19 @@ export function TeamClient() {
             </div>
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="team-role">Rol</Label>
+            <select
+              id="team-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
+            >
+              <option value="commercial">Ejecutivo comercial y marketing</option>
+              <option value="agent_editor">Editor de agente</option>
+              <option value="owner">Admin</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="team-password">Contraseña temporal</Label>
             <div className="flex gap-2">
               <Input
@@ -141,7 +183,7 @@ export function TeamClient() {
 
       <div className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Miembros
+          Miembros{limit !== null ? ` · ${members.length}/${limit}` : ""}
         </p>
         {members.map((m) => (
           <div
@@ -153,9 +195,16 @@ export function TeamClient() {
               <p className="truncate text-sm font-medium">{m.name}</p>
               <p className="text-xs text-muted-foreground">{m.email}</p>
             </div>
-            <Badge variant={m.role === "owner" ? "default" : "secondary"}>
-              {m.role === "owner" ? "Propietario" : "Miembro"}
-            </Badge>
+            <select
+              aria-label={`Rol de ${m.name}`}
+              value={m.role === "member" ? "commercial" : m.role}
+              onChange={(e) => void changeRole(m.id, e.target.value)}
+              className="rounded-md border bg-background px-2 py-1.5 text-xs font-semibold outline-none focus:border-brand"
+            >
+              <option value="owner">{ROLE_LABELS.owner}</option>
+              <option value="agent_editor">{ROLE_LABELS.agent_editor}</option>
+              <option value="commercial">{ROLE_LABELS.commercial}</option>
+            </select>
           </div>
         ))}
       </div>

@@ -4,6 +4,7 @@ import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
+import { canManageOrgSettings } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ const bodySchema = z.object({
 
 /** Vincula un formulario al servicio (lo re-vincula si estaba en otro). */
 export const POST = withAuth(async (session, req: Request, ctx: Params) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin puede vincular formularios");
+  }
   const { id } = await ctx.params;
   const body = await parseBody(req, bodySchema);
   if (!body.ok) return body.response;
@@ -53,6 +57,9 @@ export const POST = withAuth(async (session, req: Request, ctx: Params) => {
 
 /** Desvincula un formulario del servicio. */
 export const DELETE = withAuth(async (session, req: Request, ctx: Params) => {
+  if (!canManageOrgSettings(session.role)) {
+    return apiError(403, "forbidden", "Solo el admin puede vincular formularios");
+  }
   const { id } = await ctx.params;
   const body = await parseBody(req, bodySchema);
   if (!body.ok) return body.response;

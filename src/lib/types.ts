@@ -38,7 +38,7 @@ export type TemplateDto = {
   language: string;
   category: string;
   body: string;
-  status: "draft" | "pending" | "approved" | "rejected";
+  status: "draft" | "awaiting_approval" | "pending" | "approved" | "rejected";
   rejectionReason: string | null;
 };
 

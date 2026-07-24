@@ -106,6 +106,31 @@ export const invitation = pgTable("invitation", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
+/** Notificaciones in-app (campana): p. ej. plantillas por aprobar. El
+ * destinatario es un usuario concreto; `organizationId` es la empresa de
+ * CONTEXTO (la dueña del recurso), no necesariamente la del destinatario —
+ * el superadmin recibe notificaciones de otras empresas. */
+export const notification = pgTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    /** Ruta interna a la que lleva el clic (ej. /templates). */
+    href: text("href"),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("notification_user_idx").on(t.userId, t.createdAt)]
+);
+
 /* ============================================================
  * Dominio (toda tabla lleva organization_id NOT NULL + índice org-first)
  * ============================================================ */
@@ -400,11 +425,15 @@ export const template = pgTable(
     category: text("category").notNull(),
     body: text("body").notNull(),
     status: text("status", {
-      enum: ["draft", "pending", "approved", "rejected"],
+      // `awaiting_approval`: creada/editada por un comercial; NO viaja a Meta
+      // hasta que un admin (o el superadmin) la apruebe.
+      enum: ["draft", "awaiting_approval", "pending", "approved", "rejected"],
     })
       .notNull()
       .default("draft"),
     rejectionReason: text("rejection_reason"),
+    /** Quién pidió la aprobación (para notificarle el resultado). */
+    requestedById: text("requested_by_id"),
     waTemplateId: text("wa_template_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

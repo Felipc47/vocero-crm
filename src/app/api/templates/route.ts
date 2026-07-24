@@ -4,6 +4,11 @@ import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import {
+  canWriteTemplates,
+  templatesRequireApproval,
+} from "@/lib/permissions";
+import { notifyOrgApprovers } from "@/server/notifications";
+import {
   createTemplate,
   serializeTemplate,
   TemplateError,
@@ -30,11 +35,28 @@ const createSchema = z.object({
 });
 
 export const POST = withAuth(async (session, req: Request) => {
+  if (!canWriteTemplates(session.role)) {
+    return apiError(403, "forbidden", "Tu rol no puede crear plantillas");
+  }
   const body = await parseBody(req, createSchema);
   if (!body.ok) return body.response;
 
+  const requiresApproval = templatesRequireApproval(session.role);
   try {
-    const template = await createTemplate(session.organizationId, body.data);
+    const template = await createTemplate(session.organizationId, body.data, {
+      requiresApproval,
+      requestedById: requiresApproval ? session.userId : null,
+    });
+    if (requiresApproval) {
+      // Aviso a quienes aprueban: el admin de la empresa y el superadmin.
+      await notifyOrgApprovers(session.organizationId, {
+        type: "template_approval",
+        title: "Plantilla por aprobar",
+        body: `«${template.name}» espera tu aprobación antes de enviarse a Meta`,
+        href: "/templates",
+        excludeUserId: session.userId,
+      });
+    }
     return Response.json(
       { template: serializeTemplate(template) },
       { status: 201 }

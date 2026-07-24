@@ -15,12 +15,18 @@ const STATUS_BADGE: Record<
   { label: string; variant: "secondary" | "warning" | "success" | "destructive" }
 > = {
   draft: { label: "Borrador", variant: "secondary" },
+  awaiting_approval: { label: "Por aprobar (admin)", variant: "warning" },
   pending: { label: "Pendiente de Meta", variant: "warning" },
   approved: { label: "Aprobada", variant: "success" },
   rejected: { label: "Rechazada", variant: "destructive" },
 };
 
-export function TemplatesClient() {
+export function TemplatesClient({
+  canApprove = true,
+}: {
+  /** Admin/superadmin: aprueba plantillas, elige el saludo y elimina. */
+  canApprove?: boolean;
+}) {
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -90,7 +96,8 @@ export function TemplatesClient() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      {/* 004: saludo automático para leads de Meta Ads */}
+      {/* 004: saludo automático para leads de Meta Ads (solo admin) */}
+      {canApprove && (
       <Card>
         <CardHeader>
           <CardTitle>Saludo automático para leads de Meta</CardTitle>
@@ -126,6 +133,7 @@ export function TemplatesClient() {
           )}
         </CardContent>
       </Card>
+      )}
 
       <div className="flex items-start justify-between gap-4">
         <p className="text-sm text-muted-foreground">
@@ -149,6 +157,7 @@ export function TemplatesClient() {
             key={t.id}
             template={t}
             isGreeting={t.id === greetingTemplateId}
+            canApprove={canApprove}
             onChanged={() => void refetch()}
           />
         ))}
@@ -171,10 +180,12 @@ export function TemplatesClient() {
 function TemplateCard({
   template: t,
   isGreeting,
+  canApprove,
   onChanged,
 }: {
   template: TemplateDto;
   isGreeting: boolean;
+  canApprove: boolean;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -205,6 +216,39 @@ function TemplateCard({
       return;
     }
     setEditing(false);
+    onChanged();
+  }
+
+  async function approve() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/templates/${t.id}/approve`, {
+      method: "POST",
+    }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo aprobar la plantilla");
+      return;
+    }
+    onChanged();
+  }
+
+  async function rejectInternal() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/templates/${t.id}/reject`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      setError("No se pudo devolver la plantilla");
+      return;
+    }
     onChanged();
   }
 
@@ -340,7 +384,27 @@ function TemplateCard({
               </div>
             </div>
           ) : (
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
+              {t.status === "awaiting_approval" && canApprove && (
+                <>
+                  <Button size="sm" disabled={busy} onClick={() => void approve()}>
+                    {busy ? "Enviando a Meta…" : "Aprobar y enviar a Meta"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void rejectInternal()}
+                  >
+                    Devolver
+                  </Button>
+                </>
+              )}
+              {t.status === "awaiting_approval" && !canApprove && (
+                <p className="text-xs text-muted-foreground">
+                  Esperando la aprobación del admin para enviarse a Meta.
+                </p>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -353,14 +417,16 @@ function TemplateCard({
                 <Pencil className="h-3.5 w-3.5" />
                 Editar
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Eliminar
-              </Button>
+              {canApprove && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           )}
         </>

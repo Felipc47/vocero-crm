@@ -21,6 +21,7 @@ export type EventHandlers = {
     status: string;
     progress: { total: number; pending: number; sent: number; failed: number };
   }) => void;
+  onNotificationNew?: (data: { notification: unknown }) => void;
   /** Se llama tras RECONECTAR (no en la conexión inicial): catch-up con refetch. */
   onReconnect?: () => void;
 };
@@ -58,6 +59,9 @@ export function useEvents(handlers: EventHandlers): void {
     listen("lab.run", (d) => handlersRef.current.onLabRun?.(d as never));
     listen("campaign.progress", (d) =>
       handlersRef.current.onCampaignProgress?.(d as never)
+    );
+    listen("notification.new", (d) =>
+      handlersRef.current.onNotificationNew?.(d as never)
     );
 
     source.onerror = () => {
