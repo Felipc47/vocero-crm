@@ -89,6 +89,16 @@ curl -s -c "$J_EDIT" -X POST "$BASE/api/auth/sign-in/email" -H 'content-type: ap
 check "agente → 200" "$([ "$(code -b "$J_EDIT" "$BASE/api/agent/profile")" = "200" ] && echo true || echo false)" "agent"
 check "crear plantillas → 403" "$([ "$(code -b "$J_EDIT" -X POST "$BASE/api/templates" -H 'content-type: application/json' -d '{"name":"x","language":"es_CO","category":"UTILITY","body":"hola"}')" = "403" ] && echo true || echo false)" "templates"
 
+echo "── 4b. Marketing es un rol propio, con el mismo alcance operativo"
+J_MKT="${TMPDIR:-/tmp}/s20-mkt.txt"; rm -f "$J_MKT"
+R=$(curl -s -b "$J_ADMIN" -X PATCH "$BASE/api/settings/team/$(curl -s -b "$J_ADMIN" "$BASE/api/settings/team" | tr '{' '\n' | grep "extra4-$TS" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')" -H 'content-type: application/json' -d '{"role":"marketing"}')
+check "el admin asigna el rol Marketing" "$(has "$R" 'ok')" "$R"
+curl -s -c "$J_MKT" -X POST "$BASE/api/auth/sign-in/email" -H 'content-type: application/json' \
+  -d "{\"email\":\"extra4-$TS@test.local\",\"password\":\"Password123!\"}" > /dev/null
+check "marketing: bandeja → 200" "$([ "$(code -b "$J_MKT" "$BASE/api/conversations")" = "200" ] && echo true || echo false)" "conversations"
+check "marketing: agente → 403" "$([ "$(code -b "$J_MKT" "$BASE/api/agent/profile")" = "403" ] && echo true || echo false)" "agent"
+check "marketing: conexión WhatsApp → 403" "$([ "$(code -b "$J_MKT" -X PUT "$BASE/api/settings/whatsapp" -H 'content-type: application/json' -d '{"wabaId":"x","phoneNumberId":"y","token":"z"}')" = "403" ] && echo true || echo false)" "whatsapp"
+
 echo "── 5. Plantillas del comercial: aprobación + notificaciones"
 curl -s -b "$J_ADMIN" -X PUT "$BASE/api/settings/whatsapp" -H 'content-type: application/json' \
   -d '{"wabaId":"waba_delta","phoneNumberId":"phone_delta","token":"EAAtest-valido"}' > /dev/null
@@ -119,6 +129,10 @@ R=$(curl -s -b "$J_ADMIN" -X POST "$BASE/api/templates/$TPL2/reject" -H 'content
 check "el admin puede devolverla (draft)" "$(has "$R" '"status":"draft"')" "$R"
 R=$(curl -s -b "$J_COM" "$BASE/api/notifications")
 check "el comercial fue notificado de la devolución" "$(has "$R" 'muy genérica')" "$R"
+
+R=$(curl -s -b "$J_MKT" -X POST "$BASE/api/templates" -H 'content-type: application/json' \
+  -d '{"name":"promo mkt","language":"es_CO","category":"MARKETING","body":"Campaña del mes"}')
+check "marketing también crea plantillas que quedan POR APROBAR" "$(has "$R" 'awaiting_approval')" "$R"
 
 echo "── 6. Aprobación cross-org por el superadmin"
 R=$(curl -s -b "$J_COM" -X POST "$BASE/api/templates" -H 'content-type: application/json' \

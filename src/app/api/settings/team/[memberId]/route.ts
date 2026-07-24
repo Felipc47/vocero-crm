@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ memberId: string }> };
 
 const patchSchema = z.object({
-  role: z.enum(["owner", "agent_editor", "commercial"]),
+  role: z.enum(["owner", "agent_editor", "commercial", "marketing"]),
 });
 
 /** Cambia el rol de un miembro del equipo (admin only). La empresa nunca se

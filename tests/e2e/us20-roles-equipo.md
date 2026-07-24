@@ -1,7 +1,8 @@
 # US20 — Roles por empresa, límite de equipo y aprobación de plantillas
 
 **Objetivo**: equipos con roles (`Admin`, `Editor de agente`, `Ejecutivo
-comercial y marketing`), tope de 6 usuarios por empresa (la del superadmin no
+comercial` y `Marketing` — roles distintos con el mismo alcance operativo),
+tope de 6 usuarios por empresa (la del superadmin no
 tiene tope), y plantillas del comercial que pasan por aprobación del admin —
 con notificaciones in-app — antes de enviarse a Meta.
 
@@ -12,7 +13,7 @@ con notificaciones in-app — antes de enviarse a Meta.
 bash tests/e2e/us20-roles-equipo.sh
 ```
 
-30 verificaciones: límite de 6 (el 7º → `team_limit`; superadmin sin tope),
+35 verificaciones: límite de 6 (el 7º → `team_limit`; superadmin sin tope),
 asignación de roles por el admin y cross-org por el superadmin (`last_admin`
 protegido), permisos del comercial (bandeja 200; agente/WhatsApp/calendario/
 equipo 403; servicios sí pero vincular formularios 403), permisos del editor
@@ -23,7 +24,7 @@ autor; devolución con motivo; aprobación cross-org del superadmin).
 
 ## Matriz de permisos (src/lib/permissions.ts)
 
-| Sección | Admin | Editor de agente | Comercial/Marketing |
+| Sección | Admin | Editor de agente | Ejecutivo comercial · Marketing (mismo alcance) |
 |---|---|---|---|
 | Bandeja | ✔ | ✔ | ✔ |
 | Etapas del prospecto (ex Pipeline) | ✔ | — | ✔ |

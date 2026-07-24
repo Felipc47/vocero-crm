@@ -4,21 +4,28 @@
  * - `owner` (Admin): todo dentro de su empresa, incluidas conexiones
  *   (WhatsApp, Calendar), marca, equipo y aprobación de plantillas.
  * - `agent_editor` (Editor de agente): configura el agente y ve la bandeja.
- * - `commercial` (Ejecutivo comercial y marketing): bandeja, etapas del
+ * - `commercial` (Ejecutivo comercial) y `marketing` (Marketing): roles
+ *   DISTINTOS con el mismo alcance operativo — bandeja, etapas del
  *   prospecto, contactos, plantillas (con aprobación del admin), envío
  *   masivo y servicios (sin vincular formularios). Solo los ajustes de su
  *   propia cuenta.
  */
 
-export type Role = "owner" | "agent_editor" | "commercial";
+export type Role = "owner" | "agent_editor" | "commercial" | "marketing";
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: "Admin",
   agent_editor: "Editor de agente",
-  commercial: "Ejecutivo comercial y marketing",
+  commercial: "Ejecutivo comercial",
+  marketing: "Marketing",
 };
 
-export const ASSIGNABLE_ROLES: Role[] = ["owner", "agent_editor", "commercial"];
+export const ASSIGNABLE_ROLES: Role[] = [
+  "owner",
+  "agent_editor",
+  "commercial",
+  "marketing",
+];
 
 /** Tope de equipo para toda empresa que no sea la del superadmin. */
 export const TEAM_LIMIT = 6;
@@ -27,6 +34,7 @@ export const TEAM_LIMIT = 6;
 export function normalizeRole(raw: string): Role {
   if (raw === "owner" || raw === "admin") return "owner";
   if (raw === "agent_editor") return "agent_editor";
+  if (raw === "marketing") return "marketing";
   return "commercial";
 }
 
@@ -45,15 +53,17 @@ export function canEditAgent(role: string): boolean {
   return r === "owner" || r === "agent_editor";
 }
 
-/** Plantillas: el comercial puede crear/editar, pero pasan por aprobación
- * del admin antes de enviarse a Meta. Borrar (toca Meta) es del admin. */
+/** Plantillas: comercial y marketing pueden crear/editar, pero pasan por
+ * aprobación del admin antes de enviarse a Meta. Borrar (toca Meta) es del
+ * admin. */
 export function canWriteTemplates(role: string): boolean {
   const r = normalizeRole(role);
-  return r === "owner" || r === "commercial";
+  return r === "owner" || r === "commercial" || r === "marketing";
 }
 
 export function templatesRequireApproval(role: string): boolean {
-  return normalizeRole(role) === "commercial";
+  const r = normalizeRole(role);
+  return r === "commercial" || r === "marketing";
 }
 
 export function canApproveTemplates(role: string): boolean {

@@ -40,7 +40,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: z.string().trim().email(),
   password: z.string().min(8).max(128),
-  role: z.enum(["owner", "agent_editor", "commercial"]).default("commercial"),
+  role: z.enum(["owner", "agent_editor", "commercial", "marketing"]).default("commercial"),
 });
 
 /** Alta de cuenta de equipo (admin only): email + contraseña temporal

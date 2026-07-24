@@ -19,8 +19,9 @@ type Member = {
 const ROLE_LABELS: Record<string, string> = {
   owner: "Admin",
   agent_editor: "Editor de agente",
-  commercial: "Ejecutivo comercial y marketing",
-  member: "Ejecutivo comercial y marketing",
+  commercial: "Ejecutivo comercial",
+  marketing: "Marketing",
+  member: "Ejecutivo comercial",
 };
 
 export function TeamClient() {
@@ -138,7 +139,8 @@ export function TeamClient() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
             >
-              <option value="commercial">Ejecutivo comercial y marketing</option>
+              <option value="commercial">Ejecutivo comercial</option>
+              <option value="marketing">Marketing</option>
               <option value="agent_editor">Editor de agente</option>
               <option value="owner">Admin</option>
             </select>
@@ -204,6 +206,7 @@ export function TeamClient() {
               <option value="owner">{ROLE_LABELS.owner}</option>
               <option value="agent_editor">{ROLE_LABELS.agent_editor}</option>
               <option value="commercial">{ROLE_LABELS.commercial}</option>
+              <option value="marketing">{ROLE_LABELS.marketing}</option>
             </select>
           </div>
         ))}

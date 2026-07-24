@@ -28,13 +28,13 @@ import { NotificationsBell } from "@/components/notifications-bell";
 
 /** Cada item declara qué roles lo ven (ver src/lib/permissions.ts). */
 const NAV = [
-  { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true, roles: ["owner", "agent_editor", "commercial"] },
-  { href: "/pipeline", label: "Etapas del prospecto", icon: Kanban, roles: ["owner", "commercial"] },
-  { href: "/contacts", label: "Contactos", icon: Users, roles: ["owner", "commercial"] },
+  { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true, roles: ["owner", "agent_editor", "commercial", "marketing"] },
+  { href: "/pipeline", label: "Etapas del prospecto", icon: Kanban, roles: ["owner", "commercial", "marketing"] },
+  { href: "/contacts", label: "Contactos", icon: Users, roles: ["owner", "commercial", "marketing"] },
   { href: "/agent", label: "Agente", icon: Sparkles, roles: ["owner", "agent_editor"] },
-  { href: "/templates", label: "Plantillas", icon: FileText, roles: ["owner", "commercial"] },
-  { href: "/campaigns", label: "Envío masivo", icon: Megaphone, roles: ["owner", "commercial"] },
-  { href: "/services", label: "Servicios", icon: Briefcase, roles: ["owner", "commercial"] },
+  { href: "/templates", label: "Plantillas", icon: FileText, roles: ["owner", "commercial", "marketing"] },
+  { href: "/campaigns", label: "Envío masivo", icon: Megaphone, roles: ["owner", "commercial", "marketing"] },
+  { href: "/services", label: "Servicios", icon: Briefcase, roles: ["owner", "commercial", "marketing"] },
 ] as const;
 
 /** Sección exclusiva del superadmin: administrar empresas de la instancia. */

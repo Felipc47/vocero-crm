@@ -36,7 +36,7 @@ export const GET = withAuth(async (session, _req: Request, ctx: Params) => {
 
 const patchSchema = z.object({
   memberId: z.string().min(1),
-  role: z.enum(["owner", "agent_editor", "commercial"]),
+  role: z.enum(["owner", "agent_editor", "commercial", "marketing"]),
 });
 
 /** Cambia el rol de un miembro de cualquier empresa (superadmin). */

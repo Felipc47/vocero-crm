@@ -190,8 +190,9 @@ type MemberDto = {
 const ROLE_LABELS: Record<string, string> = {
   owner: "Admin",
   agent_editor: "Editor de agente",
-  commercial: "Ejecutivo comercial y marketing",
-  member: "Ejecutivo comercial y marketing",
+  commercial: "Ejecutivo comercial",
+  marketing: "Marketing",
+  member: "Ejecutivo comercial",
 };
 
 /** Equipo de una empresa: el superadmin ve y asigna roles de cualquiera. */
@@ -282,6 +283,7 @@ function TeamDialog({
                   <option value="owner">{ROLE_LABELS.owner}</option>
                   <option value="agent_editor">{ROLE_LABELS.agent_editor}</option>
                   <option value="commercial">{ROLE_LABELS.commercial}</option>
+                  <option value="marketing">{ROLE_LABELS.marketing}</option>
                 </select>
               </li>
             ))}
